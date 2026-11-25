@@ -35,6 +35,7 @@ export function openDaySheet(date) {
         el('span', { class: 'what' },
           el('div', { class: 'name', text: ev.title }),
           isHaircut(ev) ? el('div', { class: 'note', text: `✂︎ ${ev.haircut.customer ? `${ev.haircut.customer} · ` : ''}${fmtEuro(earned(ev))}` }) : null,
+          ev.endDate ? el('div', { class: 'note', text: `${fmtDayShort(fromKey(ev.date))} – ${fmtDayShort(fromKey(ev.endDate))}` }) : null,
           ev.note ? el('div', { class: 'note', text: ev.note }) : null))),
   ];
 

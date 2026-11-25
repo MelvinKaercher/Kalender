@@ -108,3 +108,13 @@ test('itemsForDay: ein Datenbestand für Monat und Woche, sortiert', () => {
   assert.equal(r.birthdays[0].age, 76);
   assert.equal(itemsForDay(events, birthdays, new Date(2026, 10, 27)).events.length, 0);
 });
+
+test('itemsForDay: mehrtägiger Termin erscheint an jedem Tag von Beginn bis Ende', () => {
+  const urlaub = { id: 'u', title: 'Urlaub', date: '2026-08-10', endDate: '2026-08-14', allDay: true };
+  const at = (d) => itemsForDay([urlaub], [], new Date(2026, 7, d)).events.length;
+  assert.equal(at(9), 0);
+  assert.equal(at(10), 1);
+  assert.equal(at(12), 1);
+  assert.equal(at(14), 1);
+  assert.equal(at(15), 0);
+});

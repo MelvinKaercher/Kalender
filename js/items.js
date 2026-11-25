@@ -15,7 +15,7 @@ import { vacationsOn } from './school-holidays.js';
 export function itemsForDay(events, birthdays, date) {
   const key = toKey(date);
   const dayEvents = events
-    .filter((e) => e.date === key)
+    .filter((e) => e.date === key || (e.endDate && e.date < key && key <= e.endDate))
     .sort(
       (a, b) =>
         Number(!!b.allDay) - Number(!!a.allDay) ||

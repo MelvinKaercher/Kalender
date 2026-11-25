@@ -27,7 +27,7 @@ export function eventStart(ev) {
 
 /** Ende des Termins; danach ist eine Erinnerung nicht mehr nützlich. */
 export function eventEnd(ev) {
-  if (ev.allDay) return addDays(fromKey(ev.date), 1);
+  if (ev.allDay) return addDays(fromKey(ev.endDate || ev.date), 1);
   const d = fromKey(ev.date);
   const end = ev.end && toMinutes(ev.end) > toMinutes(ev.start) ? toMinutes(ev.end) : toMinutes(ev.start) + 60;
   d.setMinutes(end);

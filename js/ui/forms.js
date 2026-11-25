@@ -54,6 +54,7 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
   const title = el('input', { type: 'text', class: 'title', placeholder: 'Titel', value: d.title, maxlength: '120', autocomplete: 'off', enterkeyhint: 'done' });
   const allDay = el('input', { type: 'checkbox', class: 'switch', checked: d.allDay, 'aria-label': 'Ganztägig' });
   const dateIn = el('input', { type: 'date', value: d.date, required: true });
+  const untilIn = el('input', { type: 'date', value: d.endDate || '', min: d.date, 'aria-label': 'Bis (optional)' });
   const startIn = el('input', { type: 'time', value: d.start, step: '300' });
   const endIn = el('input', { type: 'time', value: d.end, step: '300' });
   const remindSel = el('select', { 'aria-label': 'Erinnerung' });
@@ -101,6 +102,11 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
 
   const startRow = el('label', { class: 'row' }, el('span', { text: 'Beginn' }), startIn);
   const endRow = el('label', { class: 'row' }, el('span', { text: 'Ende' }), endIn);
+  const untilRow = el('label', { class: 'row' }, el('span', { text: 'Bis (mehrtägig)' }), untilIn);
+  dateIn.addEventListener('change', () => {
+    untilIn.min = dateIn.value;
+    if (untilIn.value && dateIn.value && untilIn.value < dateIn.value) untilIn.value = dateIn.value;
+  });
 
   function fillRemind() {
     const options = allDay.checked
@@ -118,6 +124,7 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
 
   function syncAllDay() {
     startRow.hidden = endRow.hidden = allDay.checked;
+    untilRow.hidden = !allDay.checked;
     fillRemind();
   }
   allDay.addEventListener('change', syncAllDay);
@@ -164,6 +171,9 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
     }
     if (!name) { error.textContent = 'Bitte einen Titel eingeben.'; shake(title.parentElement); title.focus(); return; }
     if (!dateIn.value) { error.textContent = 'Bitte ein Datum wählen.'; shake(dateIn); return; }
+    if (allDay.checked && untilIn.value && untilIn.value < dateIn.value) {
+      error.textContent = 'Das Enddatum darf nicht vor dem Beginn liegen.'; shake(untilIn); return;
+    }
     if (!allDay.checked) {
       if (!startIn.value || !endIn.value) { error.textContent = 'Bitte Beginn und Ende angeben.'; return; }
       if (toMinutes(endIn.value) <= toMinutes(startIn.value)) {
@@ -177,6 +187,7 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
       title: name,
       date: dateIn.value,
       allDay: allDay.checked,
+      endDate: allDay.checked && untilIn.value && untilIn.value > dateIn.value ? untilIn.value : undefined,
       start: allDay.checked ? null : startIn.value,
       end: allDay.checked ? null : endIn.value,
       note: note.value.trim(),
@@ -192,7 +203,7 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
     el('div', { class: 'group' },
       el('label', { class: 'row' }, el('span', { text: 'Ganztägig' }), allDay),
       el('label', { class: 'row' }, el('span', { text: 'Datum' }), dateIn),
-      startRow, endRow,
+      untilRow, startRow, endRow,
     ),
     el('div', { class: 'group' }, el('label', { class: 'row' }, el('span', { text: 'Haareschneiden ✂︎' }), hcSwitch)),
     hcGroup,
