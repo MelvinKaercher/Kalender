@@ -39,7 +39,8 @@ export function openNotificationSettings({ push, onChange = () => {} }) {
           el('li', { text: `1 Monat vorher (${uhr(config.times.advance)})` }),
           el('li', { text: `1 Woche vorher (${uhr(config.times.advance)})` }),
           el('li', { text: `1 Tag vorher (${uhr(config.times.advance)})` }),
-          el('li', { text: `am Tag selbst um ${uhr(config.times.today)}` }))));
+          el('li', { text: `am Tag selbst um ${uhr(config.times.today)}` })),
+        el('p', { class: 'notes', text: 'Auch Termine mit Erinnerung (im Termin unter „Erinnerung“) kommen als Mitteilung, zur eingestellten Zeit vorher.' })));
 
     if (state === 'unconfigured') {
       parts.push(note('Der Server für die Mitteilungen ist noch nicht eingerichtet. Die Schritte stehen in der Datei worker/README.md im Projekt. Danach trägst du die Adresse des Servers in js/config.js ein.'));
@@ -99,7 +100,7 @@ export function openNotificationSettings({ push, onChange = () => {} }) {
     }
 
     parts.push(
-      el('p', { class: 'notes small', text: 'Datenschutz: Dafür werden die Namen und Daten der Ereignisse an deinen eigenen Server (dein Cloudflare-Konto) gesendet. Termine und Haarschnitte werden dafür nicht gesendet. Beim „Abgleich" liegen sie nur verschlüsselt auf deinem Server.' }));
+      el('p', { class: 'notes small', text: 'Datenschutz: Dafür werden die Namen und Daten der Ereignisse an deinen eigenen Server (dein Cloudflare-Konto) gesendet. Von Terminen mit Erinnerung gehen Titel und Zeit an den Server (bei Haarschnitten nur „Haareschneiden“, ohne Kunde und Preis). Alle anderen Termine bleiben auf dem Gerät; beim „Abgleich" liegen sie nur verschlüsselt auf deinem Server.' }));
     sheet.body.replaceChildren(...parts);
   }
 

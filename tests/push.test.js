@@ -174,3 +174,28 @@ test('sync: Typ (Jahrestag, Sonstiges) wird mitgeschickt', async () => {
   assert.deepEqual(body.birthdays.map((x) => [x.name, x.type, x.year]), [['Hochzeitstag', 'anniversary', 2018], ['Namenstag', 'other', null]]);
   assert.ok(push);
 });
+
+test('Termin-Erinnerungen werden bei Anmeldung und Abgleich mitgeschickt', async () => {
+  const REM = [{ id: 'e1', title: 'Zahnarzt', date: '2026-11-26', allDay: false, start: '10:00', remind: 15 }];
+  const { calls } = setup({ subscribed: true, tokenState: { token: 'tok', endpoint: 'https://web.push.apple.com/old' } });
+  const mk = (tokenState) => {
+    const c = [];
+    const store = new Map(tokenState ? [['push', tokenState]] : []);
+    const meta = { get: (k) => store.get(k) ?? null, set: async (k, v) => void store.set(k, v), delete: async (k) => void store.delete(k) };
+    const sub = { endpoint: 'https://web.push.apple.com/old', options: {}, toJSON: () => ({ endpoint: 'https://web.push.apple.com/old', keys: { p256dh: 'p', auth: 'a' } }) };
+    const env = {
+      Notification: { permission: 'granted', requestPermission: async () => 'granted' }, hasPushManager: () => true, isInstalled: () => true, timeZone: () => 'Europe/Berlin',
+      getRegistration: async () => ({ pushManager: { getSubscription: async () => sub, subscribe: async () => sub } }),
+      fetch: async (url, init) => { c.push([new URL(url).pathname, JSON.parse(init.body)]); return { ok: true, status: 200 }; },
+    };
+    return { push: createPush({ config: CONFIG, meta, getBirthdays: () => [], getReminders: () => REM, env }), c };
+  };
+  const a = mk(null);
+  await a.push.enable('tok');
+  assert.deepEqual(a.c[0][1].reminders, REM);
+  const b = mk({ token: 'tok', endpoint: 'https://web.push.apple.com/old' });
+  await b.push.sync();
+  assert.equal(b.c[0][0], '/sync');
+  assert.deepEqual(b.c[0][1].reminders, REM);
+  assert.ok(calls);
+});

@@ -118,3 +118,65 @@ test('Hilfsprüfungen', () => {
   assert.ok(isTime('09:00') && isTime('23:59') && !isTime('24:00') && !isTime('9:00') && !isTime(null));
   assert.deepEqual(DEFAULT_TIMES, { advance: '09:00', today: '00:00' });
 });
+
+/* ───────── Termin-Erinnerungen ───────── */
+import { dueReminderNotifications, reminderId } from '../src/logic.js';
+
+const ev = (over = {}) => ({ id: 'e1', title: 'Zahnarzt', date: '2026-11-25', allDay: false, start: '14:00', remind: 15, ...over });
+const dueEv = (iso, reminders, sent = {}, tz = BERLIN) => dueReminderNotifications({ reminders, now: new Date(iso), tz, sent });
+
+test('Termin 14:00, 15 Min. vorher: ab 13:45 Ortszeit fällig, nicht davor', () => {
+  assert.equal(dueEv('2026-11-25T12:44:00Z', [ev()]).length, 0); // 13:44
+  const r = dueEv('2026-11-25T12:45:00Z', [ev()]); // 13:45
+  assert.equal(r.length, 1);
+  assert.deepEqual([r[0].title, r[0].body], ['Zahnarzt', 'in 15 Min.']);
+  assert.equal(r[0].eventId, 'e1');
+});
+
+test('verspätet (Cron-Lauf später): Text zeigt die echte Restzeit; bis 5 Min. nach Beginn, danach nicht mehr', () => {
+  assert.equal(dueEv('2026-11-25T12:50:00Z', [ev()])[0].body, 'in 10 Min.');
+  assert.equal(dueEv('2026-11-25T13:00:00Z', [ev({ remind: 0 })])[0].body, 'Jetzt'); // 14:00 genau
+  assert.equal(dueEv('2026-11-25T13:04:00Z', [ev({ remind: 0 })]).length, 1);
+  assert.equal(dueEv('2026-11-25T13:05:00Z', [ev({ remind: 0 })]).length, 0);
+});
+
+test('1 Tag vorher: am Vortag um 14:00; Text mit Datum und Uhrzeit', () => {
+  const r = dueEv('2026-11-24T13:00:00Z', [ev({ remind: 1440 })]); // 24.11. 14:00
+  assert.equal(r.length, 1);
+  assert.equal(r[0].body, '25.11., 14:00 Uhr');
+  assert.equal(dueEv('2026-11-24T12:59:00Z', [ev({ remind: 1440 })]).length, 0);
+});
+
+test('ganztägig: ab 9:00 am Tag (Vorlauf 0) bis Tagesende; 1 Tag vorher: Vortag 9:00 → "Morgen"', () => {
+  const allDay = ev({ allDay: true, start: null, remind: 0 });
+  assert.equal(dueEv('2026-11-25T07:59:00Z', [allDay]).length, 0); // 8:59
+  assert.equal(dueEv('2026-11-25T08:00:00Z', [allDay])[0].body, 'Heute');
+  assert.equal(dueEv('2026-11-25T22:59:00Z', [allDay]).length, 1); // 23:59
+  assert.equal(dueEv('2026-11-25T23:00:00Z', [allDay]).length, 0); // schon 26.11.
+  const day = ev({ allDay: true, start: null, remind: 1440 });
+  assert.equal(dueEv('2026-11-24T08:00:00Z', [day])[0].body, 'Morgen');
+});
+
+test('Zeitzone des Handys zählt (New York ist 6 Std. hinter Berlin)', () => {
+  assert.equal(dueEv('2026-11-25T18:45:00Z', [ev()], {}, 'America/New_York').length, 1); // 13:45 New York
+  assert.equal(dueEv('2026-11-25T12:45:00Z', [ev()], {}, 'America/New_York').length, 0);
+});
+
+test('nur einmal senden; Verschieben/Ändern ergibt eine neue Erinnerung', () => {
+  const r = ev();
+  const sent = { [reminderId(r)]: 'x' };
+  assert.equal(dueEv('2026-11-25T12:50:00Z', [r], sent).length, 0);
+  assert.equal(dueEv('2026-11-25T12:50:00Z', [{ ...r, start: '14:05' }], sent).length, 1);
+  assert.notEqual(reminderId(r), reminderId({ ...r, remind: 5 }));
+});
+
+test('Termin in der Vergangenheit oder weit in der Zukunft: nichts', () => {
+  assert.equal(dueEv('2026-11-26T09:00:00Z', [ev()]).length, 0);
+  assert.equal(dueEv('2026-11-20T09:00:00Z', [ev()]).length, 0);
+});
+
+test('pruneSent: Termin-Erinnerungen nach 14 Tagen weg, Geburtstage unverändert', () => {
+  const now = new Date('2026-12-01T00:00:00Z');
+  const kept = pruneSent({ 'ev|a|2026-11-01|1400|15': '2026-11-10T00:00:00Z', 'ev|b|2026-11-29|1400|15': '2026-11-29T00:00:00Z', 'x:2026:today': 'v', 'x:2020:today': 'v' }, 2026, now);
+  assert.deepEqual(Object.keys(kept).sort(), ['ev|b|2026-11-29|1400|15', 'x:2026:today']);
+});

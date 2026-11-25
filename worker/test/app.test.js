@@ -274,3 +274,44 @@ test('Sync: Token Pflicht, Eingaben geprüft, großer Block erlaubt, Abos unber�
   assert.equal((await syncCall(env, '/subscribe', { subscription: { endpoint: 'x' } })).status, 400, 'normale Anfragen bleiben bei 64 KB');
   assert.equal((await syncCall(env, '/test', { endpoint: 'https://web.push.apple.com/x', pad: 'a'.repeat(70 * 1024) })).status, 413);
 });
+
+/* ───────── Termin-Erinnerungen ───────── */
+const subBody = (extra = {}) => ({ birthdays: [], ...extra });
+const post = (env, path, body) => call(env, path, body);
+const rem = (over = {}) => ({ id: 'e1', title: 'Zahnarzt', date: '2026-11-25', allDay: false, start: '14:00', remind: 15, ...over });
+
+test('Erinnerungen: werden gespeichert; ohne Angabe (ältere App) → leer bzw. bleiben bei /sync erhalten', async () => {
+  const env = mkEnv();
+  assert.equal((await subscribe(env, subBody({ reminders: [rem()] }))).status, 200);
+  const rec = () => JSON.parse([...env.SUBS.map.values()][0]);
+  assert.deepEqual(rec().reminders, [rem()]);
+  // /sync ohne reminders (ältere App) lässt sie unberührt
+  assert.equal((await post(env, '/sync', { endpoint: ENDPOINT, birthdays: [], tz: 'Europe/Berlin' })).status, 200);
+  assert.deepEqual(rec().reminders, [rem()]);
+  assert.equal((await post(env, '/sync', { endpoint: ENDPOINT, birthdays: [], tz: 'Europe/Berlin', reminders: [] })).status, 200);
+  assert.deepEqual(rec().reminders, []);
+});
+
+test('Erinnerungen: strenge Prüfung', async () => {
+  const bad = [
+    [rem({ id: 'a b' })], [rem({ title: '' })], [rem({ title: 'x'.repeat(121) })], [rem({ date: '2026-13-40' })], [rem({ date: 'morgen' })],
+    [rem({ allDay: 'ja' })], [rem({ start: '25:00' })], [rem({ remind: -1 })], [rem({ remind: 1.5 })], [rem({ remind: 99999 })],
+    'kein array', Array.from({ length: 201 }, (_, i) => rem({ id: `e${i}` })),
+  ];
+  for (const reminders of bad) assert.equal((await subscribe(mkEnv(), subBody({ reminders }))).status, 400, JSON.stringify(reminders).slice(0, 60));
+  assert.equal((await subscribe(mkEnv(), subBody({ reminders: [rem({ allDay: true, start: null }), rem({ id: 'e2', remind: 0 })] }))).status, 200);
+});
+
+test('Cron: Termin-Erinnerung wird zur richtigen Zeit einmal gesendet (inkl. Link zum Termin)', async () => {
+  const env = mkEnv();
+  await subscribe(env, subBody({ reminders: [rem()] }));
+  const msgs = [];
+  const sendPush = async (s, m) => (msgs.push(m), { status: 201 });
+  await runScheduled(env, { sendPush, now: new Date('2026-11-25T12:44:00Z') });
+  assert.equal(msgs.length, 0);
+  await runScheduled(env, { sendPush, now: new Date('2026-11-25T12:45:00Z') });
+  assert.equal(msgs.length, 1);
+  assert.deepEqual([msgs[0].title, msgs[0].body, msgs[0].tag, msgs[0].url], ['Zahnarzt', 'in 15 Min.', 'ev-e1', './?open=event:e1']);
+  await runScheduled(env, { sendPush, now: new Date('2026-11-25T12:50:00Z') });
+  assert.equal(msgs.length, 1, 'nicht doppelt');
+});

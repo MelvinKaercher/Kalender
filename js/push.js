@@ -34,8 +34,9 @@ const browserEnv = () => ({
  * @param {{workerUrl:string, vapidPublicKey:string}} o.config
  * @param {{get:Function,set:Function,delete:Function}} o.meta   lokaler Speicher (Zustand + Zugangscode)
  * @param {() => object[]} o.getBirthdays
+ * @param {() => object[]} [o.getReminders]   Termine mit Erinnerung (Ergebnis von remindersForPush)
  */
-export function createPush({ config, meta, getBirthdays, env = browserEnv() }) {
+export function createPush({ config, meta, getBirthdays, getReminders = () => [], env = browserEnv() }) {
   const configured = () => !!(config.workerUrl && config.vapidPublicKey);
   const state = () => meta.get('push'); // { token, endpoint } oder null
 
@@ -93,7 +94,7 @@ export function createPush({ config, meta, getBirthdays, env = browserEnv() }) {
 
     const registration = await env.getRegistration();
     const sub = await subscribeBrowser(registration);
-    await post('/subscribe', { subscription: sub.toJSON(), birthdays: payload(), tz: env.timeZone() }, token);
+    await post('/subscribe', { subscription: sub.toJSON(), birthdays: payload(), reminders: getReminders(), tz: env.timeZone() }, token);
     await meta.set('push', { token, endpoint: sub.endpoint });
   }
 
@@ -106,11 +107,11 @@ export function createPush({ config, meta, getBirthdays, env = browserEnv() }) {
       const sub = await registration.pushManager.getSubscription();
       if (!sub) { await meta.delete('push'); return { ok: false, lost: true }; } // iOS hat das Abo entzogen
       try {
-        await post('/sync', { endpoint: sub.endpoint, birthdays: payload(), tz: env.timeZone() }, st.token);
+        await post('/sync', { endpoint: sub.endpoint, birthdays: payload(), reminders: getReminders(), tz: env.timeZone() }, st.token);
       } catch (err) {
         if (err.code === 'server' && err.message === '404') {
           // Server kennt das Abo nicht (mehr): neu anmelden
-          await post('/subscribe', { subscription: sub.toJSON(), birthdays: payload(), tz: env.timeZone() }, st.token);
+          await post('/subscribe', { subscription: sub.toJSON(), birthdays: payload(), reminders: getReminders(), tz: env.timeZone() }, st.token);
         } else throw err;
       }
       if (sub.endpoint !== st.endpoint) await meta.set('push', { ...st, endpoint: sub.endpoint });

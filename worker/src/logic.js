@@ -62,10 +62,61 @@ export function dueNotifications({ birthdays, now, tz, sent = {}, times = DEFAUL
   return out;
 }
 
-/** Alte "gesendet"-Markierungen entfernen (Geburtstagsjahr vor dem Vorjahr). */
-export function pruneSent(sent, currentYear) {
+/* ───────── Termin-Erinnerungen ───────── */
+
+const ALL_DAY_HOUR = 9; // wie in der App: ganztägige Termine erinnern ab 9:00 Uhr
+const GRACE_MINUTES = 5; // so lange nach Terminbeginn wird eine (verspätete) Erinnerung noch gesendet
+
+/** Datum + Minuten seit Mitternacht als fortlaufende "Minuten der Ortszeit" (zum Vergleichen, ohne Zeitzonen-Rechnerei). */
+const localMinutes = (dateKey, minutes) => {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return Date.UTC(y, m - 1, d) / 60000 + minutes;
+};
+
+const clock = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+
+/** Sent-Id: ändert sich beim Verschieben/Ändern des Termins, dann gibt es eine neue Erinnerung (wie in der App). */
+export const reminderId = (r) => `ev|${r.id}|${r.date}|${r.allDay ? 'allday' : r.start}|${r.remind}`;
+
+/**
+ * Fällige Erinnerungen für Termine. Zeiten sind Ortszeit des Handys (tz).
+ * Fällig: Auslösezeit (Beginn − Vorlauf; ganztägig 9:00) erreicht, Termin noch nicht begonnen
+ * (bis 5 Min. danach, ganztägig bis Tagesende) und noch nicht gesendet.
+ * @returns {{id:string, eventId:string, title:string, body:string}[]}
+ */
+export function dueReminderNotifications({ reminders = [], now, tz, sent = {} }) {
+  const local = zonedNow(now, tz);
+  const nowMin = localMinutes(local.key, local.minutes);
+  const out = [];
+  for (const r of reminders) {
+    const id = reminderId(r);
+    if (sent[id]) continue;
+    const startMin = r.allDay ? ALL_DAY_HOUR * 60 : toMinutes(r.start);
+    const start = localMinutes(r.date, startMin);
+    const fire = start - r.remind;
+    const end = r.allDay ? localMinutes(r.date, 24 * 60) : start + GRACE_MINUTES;
+    if (nowMin < fire || nowMin >= end) continue;
+    let body;
+    if (r.allDay) {
+      const days = Math.round((localMinutes(r.date, 0) - localMinutes(local.key, 0)) / 1440);
+      body = days <= 0 ? 'Heute' : days === 1 ? 'Morgen' : `in ${days} Tagen`;
+    } else {
+      const mins = start - nowMin;
+      body = mins <= 0 ? 'Jetzt' : mins < 60 ? `in ${mins} Min.` : r.date === local.key ? `um ${clock(startMin)} Uhr` : `${r.date.split('-').reverse().slice(0, 2).join('.')}., ${clock(startMin)} Uhr`;
+    }
+    out.push({ id, eventId: r.id, title: r.title, body });
+  }
+  return out;
+}
+
+/** Alte "gesendet"-Markierungen entfernen (Geburtstagsjahr vor dem Vorjahr, Termin-Erinnerungen nach 14 Tagen). */
+export function pruneSent(sent, currentYear, now = new Date()) {
   const kept = {};
   for (const [id, value] of Object.entries(sent)) {
+    if (id.startsWith('ev|')) {
+      if (now.getTime() - Date.parse(value) < 14 * 86400000) kept[id] = value;
+      continue;
+    }
     const year = Number(id.split(':').at(-2));
     if (!Number.isFinite(year) || year >= currentYear - 1) kept[id] = value;
   }

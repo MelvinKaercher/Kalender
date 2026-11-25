@@ -37,6 +37,26 @@ export function eventEnd(ev) {
 export const eventReminderKey = (ev) => `ev:${ev.id}:${ev.date}:${ev.allDay ? 'allday' : ev.start}:${ev.remind}`;
 export const birthdayReminderKey = (b, year, stage) => `bd:${b.id}:${year}:${stage}`;
 
+/**
+ * Termine mit Erinnerung für den Push-Server: nur Anstehendes (Ende noch nicht vorbei, bis 90 Tage voraus), höchstens 200.
+ * Datenschutz: Haarschnitt-Termine senden nur "Haareschneiden" (ohne Kundenname), Titel werden gekürzt.
+ */
+export function remindersForPush(events, now = new Date()) {
+  const horizon = now.getTime() + 90 * 86400000;
+  return events
+    .filter((ev) => ev.remind !== null && ev.remind !== undefined && eventEnd(ev) > now && eventStart(ev).getTime() <= horizon)
+    .sort((a, b) => eventStart(a) - eventStart(b))
+    .slice(0, 200)
+    .map((ev) => ({
+      id: ev.id,
+      title: (ev.haircut ? 'Haareschneiden' : ev.title || 'Termin').slice(0, 120),
+      date: ev.date,
+      allDay: !!ev.allDay,
+      start: ev.allDay ? null : ev.start,
+      remind: ev.remind,
+    }));
+}
+
 /** Kurzer Text, wann es losgeht ("in 15 Min.", "um 14:00", "Heute", …). */
 export function whenLabel(ev, now = new Date()) {
   if (ev.allDay) {

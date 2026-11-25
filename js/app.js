@@ -11,7 +11,7 @@ import { renderHaircuts } from './ui/haircuts-view.js';
 import { openDaySheet } from './ui/day-sheet.js';
 import { openEventForm, openBirthdayForm } from './ui/forms.js';
 import { syncBanners } from './ui/banner.js';
-import { dueReminders } from './reminders.js';
+import { dueReminders, remindersForPush } from './reminders.js';
 import config from './config.js';
 import { createPush } from './push.js';
 import { createSync } from './sync.js';
@@ -30,7 +30,7 @@ function savedView() {
 }
 
 const state = { view: savedView(), cursor: startOfDay(new Date()) };
-const push = createPush({ config, meta: store.meta, getBirthdays: () => store.birthdays() });
+const push = createPush({ config, meta: store.meta, getBirthdays: () => store.birthdays(), getReminders: () => remindersForPush(store.events()) });
 const syncer = createSync({ config, meta: store.meta, store });
 let renderedDay = toKey(new Date());
 
@@ -288,7 +288,10 @@ function checkReminders() {
 
 /* ───────── Push: Ereignisse (Geburtstage …) beim Server aktuell halten ───────── */
 
-const birthdaySignature = () => JSON.stringify(store.birthdays().map((b) => [b.id, b.name, b.day, b.month, b.year, b.type || 'birthday']));
+const birthdaySignature = () => JSON.stringify([
+  store.birthdays().map((b) => [b.id, b.name, b.day, b.month, b.year, b.type || 'birthday']),
+  remindersForPush(store.events()),
+]);
 let lastSignature = '';
 let lastSync = 0;
 let syncTimer;
@@ -308,10 +311,15 @@ function syncPush({ force = false } = {}) {
 function openFromUrl(href) {
   let target;
   try { target = new URL(href, location.href).searchParams.get('open'); } catch { return; }
-  const m = /^birthday:(.+)$/.exec(target || '');
+  const m = /^(birthday|event):(.+)$/.exec(target || '');
   if (!m) return;
-  const birthday = store.birthdays().find((b) => b.id === m[1]);
   history.replaceState(null, '', location.pathname);
+  if (m[1] === 'event') {
+    const event = store.events().find((e) => e.id === m[2]);
+    if (event) openEventForm({ event });
+    return;
+  }
+  const birthday = store.birthdays().find((b) => b.id === m[2]);
   if (!birthday) return;
   setView('birthdays');
   openBirthdayForm({ birthday });

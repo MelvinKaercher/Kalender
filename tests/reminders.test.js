@@ -127,3 +127,23 @@ test('Start/Ende und Beschriftung', () => {
   assert.equal(whenLabel(ev(), new Date(2026, 10, 25, 9, 0)), 'um 14:00 Uhr');
   assert.equal(whenLabel(ev(), new Date(2026, 10, 25, 14, 5)), 'Jetzt');
 });
+
+/* ───────── Push: Termine mit Erinnerung ───────── */
+import { remindersForPush } from '../js/reminders.js';
+
+test('remindersForPush: nur Anstehendes mit Erinnerung, ohne Kundennamen, gekürzt, begrenzt', () => {
+  const now = new Date(2026, 10, 25, 12, 0);
+  const mk = (id, over = {}) => ({ id, title: 'T' + id, date: '2026-11-26', allDay: false, start: '10:00', end: '11:00', remind: 15, ...over });
+  const list = remindersForPush([
+    mk('a'), mk('b', { remind: null }), mk('c', { date: '2026-11-20' }), mk('d', { date: '2027-06-01' }),
+    mk('e', { title: 'Haareschneiden · Silas', haircut: { customer: 'Silas', price: 10 } }),
+    mk('f', { title: 'x'.repeat(300) }), mk('g', { allDay: true, start: null, end: null, remind: 0 }),
+  ], now);
+  assert.deepEqual(list.map((r) => r.id).sort(), ['a', 'e', 'f', 'g']);
+  assert.equal(list.find((r) => r.id === 'e').title, 'Haareschneiden');
+  assert.equal(list.find((r) => r.id === 'f').title.length, 120);
+  assert.deepEqual(list.find((r) => r.id === 'g'), { id: 'g', title: 'Tg', date: '2026-11-26', allDay: true, start: null, remind: 0 });
+  assert.ok(!JSON.stringify(list).includes('Silas'));
+  const many = Array.from({ length: 300 }, (_, i) => mk(`m${i}`));
+  assert.equal(remindersForPush(many, now).length, 200);
+});
