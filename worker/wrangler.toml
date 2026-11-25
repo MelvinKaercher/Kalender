@@ -1,0 +1,26 @@
+name = "kalender-push"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Läuft alle 5 Minuten; Nachrichten kommen also 0–5 Minuten nach dem Zielzeitpunkt.
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+# Adresse deiner Kalender-App (nur der Ursprung: ohne Pfad, ohne Schrägstrich am Ende).
+# Vorausgefüllt für GitHub Pages dieses Repos – anpassen, falls du die App woanders hostest.
+ALLOWED_ORIGIN = "https://melvinkaercher.github.io"
+# Kontakt für den Push-Dienst. Eine https-Adresse reicht, keine E-Mail nötig.
+VAPID_SUBJECT = "https://melvinkaercher.github.io/Kalender/"
+# EINTRAGEN: der öffentliche Schlüssel aus `node scripts/gen-vapid.mjs`
+VAPID_PUBLIC_KEY = ""
+# Uhrzeit (Ortszeit des Handys): Vorab-Erinnerungen (1 Monat / 1 Woche / 1 Tag vorher) und der Geburtstag selbst
+ADVANCE_TIME = "09:00"
+BIRTHDAY_TIME = "00:00"
+
+# EINTRAGEN: Kennung aus `npx wrangler kv namespace create SUBS`
+[[kv_namespaces]]
+binding = "SUBS"
+id = ""
+
+# Geheim (nicht hier eintragen!): VAPID_PRIVATE_KEY und APP_TOKEN, per `npx wrangler secret put …`

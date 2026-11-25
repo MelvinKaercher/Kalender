@@ -1,6 +1,6 @@
 // Erinnerungen (nur in der App sichtbar): reine Berechnung, was gerade fällig ist.
 import { fromKey, toKey, toMinutes, addDays, startOfDay } from './calendar.js';
-import { birthdaysOn } from './birthdays.js';
+import { currentStage, reminderDates, stageText } from './birthdays.js';
 
 export const REMIND_OPTIONS = [
   { value: null, label: 'Keine' },
@@ -11,6 +11,9 @@ export const REMIND_OPTIONS = [
   { value: 60, label: '1 Std. vorher' },
   { value: 1440, label: '1 Tag vorher' },
 ];
+
+/** So viele Tage nach dem Stufen-Datum zeigt die App eine verpasste Geburtstags-Erinnerung noch an. */
+export const CATCH_UP_DAYS = 2;
 
 /** Ganztägige Termine erinnern ab 9:00 Uhr. */
 export const ALL_DAY_HOUR = 9;
@@ -32,7 +35,7 @@ export function eventEnd(ev) {
 }
 
 export const eventReminderKey = (ev) => `ev:${ev.id}:${ev.date}:${ev.allDay ? 'allday' : ev.start}:${ev.remind}`;
-export const birthdayReminderKey = (b, year) => `bd:${b.id}:${year}`;
+export const birthdayReminderKey = (b, year, stage) => `bd:${b.id}:${year}:${stage}`;
 
 /** Kurzer Text, wann es losgeht ("in 15 Min.", "um 14:00", "Heute", …). */
 export function whenLabel(ev, now = new Date()) {
@@ -62,17 +65,20 @@ export function dueReminders({ events, birthdays, seen, now = new Date() }) {
       due.push({ key, kind: 'event', title: ev.title, text: whenLabel(ev, now), event: ev, at });
     }
   }
-  for (const { birthday, age } of birthdaysOn(birthdays, now)) {
-    const key = birthdayReminderKey(birthday, now.getFullYear());
+  // Geburtstage: pro Person nur die jüngste fällige Stufe (1 Monat / 1 Woche / 1 Tag vorher / heute)
+  for (const birthday of birthdays) {
+    const cur = currentStage(birthday, now);
+    if (!cur) continue;
+    const key = birthdayReminderKey(birthday, cur.year, cur.stage);
     if (seen.has(key)) continue;
-    due.push({
-      key,
-      kind: 'birthday',
-      title: `${birthday.name} hat Geburtstag`,
-      text: age ? `wird ${age}` : 'Heute',
-      birthday,
-      at: startOfDay(now),
-    });
+    const at = reminderDates(birthday, cur.year).find((r) => r.stage === cur.stage).date;
+    // Nur am Tag der Stufe und die zwei Tage danach (Nachholen). Wer einen Geburtstag erst später einträgt
+    // oder die App lange nicht öffnet, bekommt keine veraltete Meldung. (Push schickt nur am exakten Tag.)
+    const daysLate = Math.round((startOfDay(now) - at) / 86400000);
+    if (daysLate > CATCH_UP_DAYS) continue;
+    const daysLeft = Math.round((cur.date - startOfDay(now)) / 86400000);
+    const { title, body } = stageText(cur.stage, birthday, cur.age, cur.date, daysLate > 0 ? daysLeft : undefined);
+    due.push({ key, kind: 'birthday', stage: cur.stage, title, text: body, birthday, at });
   }
   return due.sort((a, b) => a.at - b.at);
 }

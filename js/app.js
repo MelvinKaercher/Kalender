@@ -9,6 +9,9 @@ import { openDaySheet } from './ui/day-sheet.js';
 import { openEventForm, openBirthdayForm } from './ui/forms.js';
 import { syncBanners } from './ui/banner.js';
 import { dueReminders } from './reminders.js';
+import config from './config.js';
+import { createPush } from './push.js';
+import { openNotificationSettings } from './ui/settings.js';
 
 const $ = (sel) => document.querySelector(sel);
 const VIEWS = ['month', 'week', 'birthdays'];
@@ -21,6 +24,7 @@ function savedView() {
 }
 
 const state = { view: savedView(), cursor: startOfDay(new Date()) };
+const push = createPush({ config, meta: store.meta, getBirthdays: () => store.birthdays() });
 let renderedDay = toKey(new Date());
 
 /* ───────── Rendering ───────── */
@@ -81,6 +85,8 @@ function render(anim = null) {
     onBirthday: (birthday) => openBirthdayForm({ birthday }),
     onNewEvent: (date, start) => openEventForm({ date, start }),
     onAdd: () => openBirthdayForm({}),
+    pushStatus: push.status(),
+    onNotifications: () => openNotificationSettings({ push, onChange: () => render() }),
   };
   if (state.view === 'month') renderMonth(view, ctx);
   else if (state.view === 'week') renderWeek(view, ctx);
@@ -168,13 +174,52 @@ function checkReminders() {
   });
 }
 
+/* ───────── Push: Geburtstage beim Server aktuell halten ───────── */
+
+const birthdaySignature = () => JSON.stringify(store.birthdays().map((b) => [b.id, b.name, b.day, b.month, b.year]));
+let lastSignature = '';
+let lastSync = 0;
+let syncTimer;
+
+function syncPush({ force = false } = {}) {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    if (!force && Date.now() - lastSync < 6 * 3600 * 1000 && birthdaySignature() === lastSignature) return;
+    lastSignature = birthdaySignature();
+    lastSync = Date.now();
+    const result = await push.sync();
+    if (result.lost) render(); // iOS hat das Abo entzogen: Anzeige auf "Aus" aktualisieren
+  }, 1000);
+}
+
+/** Klick auf eine Benachrichtigung: ?open=birthday:<id> öffnet den Geburtstag. */
+function openFromUrl(href) {
+  let target;
+  try { target = new URL(href, location.href).searchParams.get('open'); } catch { return; }
+  const m = /^birthday:(.+)$/.exec(target || '');
+  if (!m) return;
+  const birthday = store.birthdays().find((b) => b.id === m[1]);
+  history.replaceState(null, '', location.pathname);
+  if (!birthday) return;
+  setView('birthdays');
+  openBirthdayForm({ birthday });
+}
+
 /* ───────── Start ───────── */
 
 async function start() {
   await store.load();
-  store.onChange(() => { render(); checkReminders(); });
+  lastSignature = birthdaySignature();
+  store.onChange(() => {
+    render();
+    checkReminders();
+    if (birthdaySignature() !== lastSignature) syncPush();
+  });
   render();
   checkReminders();
+  syncPush({ force: true });
+  openFromUrl(location.href);
+  navigator.serviceWorker?.addEventListener('message', (e) => e.data?.type === 'open' && openFromUrl(e.data.url));
 
   setInterval(() => {
     // Tageswechsel (App blieb über Mitternacht offen): "heute" neu markieren
@@ -185,6 +230,7 @@ async function start() {
     if (document.visibilityState !== 'visible') return;
     render();
     checkReminders();
+    syncPush();
   });
 
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

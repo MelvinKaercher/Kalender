@@ -5,13 +5,14 @@
 // Stores:  events    { id, title, date:'YYYY-MM-DD', allDay, start:'HH:MM', end:'HH:MM', note, remind:null|Minuten }
 //          birthdays { id, name, day, month, year|null }
 //          seen      { key }   (bereits weggewischte Erinnerungen)
+//          meta      { key, value }   (lokale Einstellungen, z. B. Push-Status und Zugangscode)
 
 const DB_NAME = 'kalender';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let db = null;
 let persistent = true;
-const cache = { events: [], birthdays: [], seen: new Set() };
+const cache = { events: [], birthdays: [], seen: new Set(), meta: new Map() };
 const listeners = new Set();
 
 function openDb() {
@@ -19,9 +20,11 @@ function openDb() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const d = req.result;
-      d.createObjectStore('events', { keyPath: 'id' });
-      d.createObjectStore('birthdays', { keyPath: 'id' });
-      d.createObjectStore('seen', { keyPath: 'key' });
+      const ensure = (name, keyPath) => { if (!d.objectStoreNames.contains(name)) d.createObjectStore(name, { keyPath }); };
+      ensure('events', 'id');
+      ensure('birthdays', 'id');
+      ensure('seen', 'key');
+      ensure('meta', 'key'); // neu in Version 2
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -54,10 +57,11 @@ const newId = () =>
 export async function load() {
   try {
     db = await openDb();
-    const [events, birthdays, seen] = await Promise.all([getAll('events'), getAll('birthdays'), getAll('seen')]);
+    const [events, birthdays, seen, metaRows] = await Promise.all([getAll('events'), getAll('birthdays'), getAll('seen'), getAll('meta')]);
     cache.events = events;
     cache.birthdays = birthdays;
     cache.seen = new Set(seen.map((s) => s.key));
+    cache.meta = new Map(metaRows.map((m) => [m.key, m.value]));
     // Bitte iOS, die Daten nicht automatisch zu verwerfen.
     navigator.storage?.persist?.().catch(() => {});
   } catch (err) {
@@ -111,3 +115,16 @@ export function markSeen(key) {
   notify();
   return write('seen', (s) => s.put({ key }));
 }
+
+/** Lokale Einstellungen (nur auf diesem Gerät). */
+export const meta = {
+  get: (key) => cache.meta.get(key) ?? null,
+  set(key, value) {
+    cache.meta.set(key, value);
+    return write('meta', (s) => s.put({ key, value }));
+  },
+  delete(key) {
+    cache.meta.delete(key);
+    return write('meta', (s) => s.delete(key));
+  },
+};

@@ -57,3 +57,75 @@ test('sortByNext sortiert nach dem nächsten Auftreten, nicht nach Kalenderjahr'
   const sorted = sortByNext(list, new Date(2026, 10, 25)).map((x) => x.birthday.name);
   assert.deepEqual(sorted, ['November', 'Dezember', 'Januar']);
 });
+
+/* ───────── Benachrichtigungsstufen (1 Monat, 1 Woche, 1 Tag vorher, am Tag) ───────── */
+import { STAGES, minusMonthClamped, reminderDates, stageText, currentStage } from '../js/birthdays.js';
+
+const keyOf = (r) => `${r.stage}:${toKey(r.date)}`;
+
+test('minusMonthClamped: gleicher Tag im Vormonat, bei Monatsende gekürzt', () => {
+  assert.equal(toKey(minusMonthClamped(new Date(2026, 10, 27))), '2026-10-27');
+  assert.equal(toKey(minusMonthClamped(new Date(2026, 2, 31))), '2026-02-28'); // 31.3. -> 28.2.
+  assert.equal(toKey(minusMonthClamped(new Date(2028, 2, 31))), '2028-02-29'); // Schaltjahr
+  assert.equal(toKey(minusMonthClamped(new Date(2026, 4, 31))), '2026-04-30'); // 31.5. -> 30.4.
+  assert.equal(toKey(minusMonthClamped(new Date(2027, 0, 5))), '2026-12-05'); // Jahreswechsel
+});
+
+test('reminderDates: vier Stufen in fester Reihenfolge', () => {
+  assert.deepEqual(STAGES, ['month', 'week', 'day', 'today']);
+  const r = reminderDates(anna, 2026); // 12.3.
+  assert.deepEqual(r.map(keyOf), ['month:2026-02-12', 'week:2026-03-05', 'day:2026-03-11', 'today:2026-03-12']);
+});
+
+test('reminderDates: Geburtstag im Januar -> Vorab-Stufen im Dezember des Vorjahres', () => {
+  const jan = { id: 'j', name: 'Jan', day: 5, month: 1, year: null };
+  assert.deepEqual(reminderDates(jan, 2027).map(keyOf), ['month:2026-12-05', 'week:2026-12-29', 'day:2027-01-04', 'today:2027-01-05']);
+});
+
+test('reminderDates: 29.2. folgt der Schaltjahr-Regel, Vorab-Stufen auch', () => {
+  const leap = { id: 'l', name: 'Schalt', day: 29, month: 2, year: 2000 };
+  assert.deepEqual(reminderDates(leap, 2028).map(keyOf), ['month:2028-01-29', 'week:2028-02-22', 'day:2028-02-28', 'today:2028-02-29']);
+  assert.deepEqual(reminderDates(leap, 2027).map(keyOf), ['month:2027-01-28', 'week:2027-02-21', 'day:2027-02-27', 'today:2027-02-28']);
+});
+
+test('stageText: deutsche Texte je Stufe, Alter nur wenn bekannt', () => {
+  const d = new Date(2026, 10, 27);
+  assert.deepEqual(stageText('month', anna, 36, d), { title: 'Anna hat in 1 Monat Geburtstag', body: 'am 27. November · wird 36' });
+  assert.equal(stageText('week', anna, 36, d).title, 'Anna hat in 1 Woche Geburtstag');
+  assert.equal(stageText('day', anna, 36, d).title, 'Anna hat morgen Geburtstag');
+  assert.deepEqual(stageText('today', anna, 36, d), { title: 'Anna hat heute Geburtstag', body: 'wird 36' });
+  assert.equal(stageText('month', anna, null, d).body, 'am 27. November');
+  assert.equal(stageText('today', anna, null, d).body, 'Alles Gute!');
+});
+
+test('stageText mit daysLeft: echte Restzeit statt Stufen-Text', () => {
+  const d = new Date(2026, 10, 27);
+  assert.equal(stageText('week', anna, 36, d, 5).title, 'Anna hat in 5 Tagen Geburtstag');
+  assert.equal(stageText('week', anna, 36, d, 1).title, 'Anna hat morgen Geburtstag');
+  assert.equal(stageText('day', anna, 36, d, 0).title, 'Anna hat heute Geburtstag');
+  assert.equal(stageText('week', anna, 36, d, 5).body, 'am 27. November · wird 36');
+});
+
+test('currentStage: jüngste Stufe, deren Datum erreicht ist', () => {
+  const b = { id: 'a', name: 'Anna', day: 25, month: 11, year: 1990 }; // 25.11.
+  const at = (y, m, d) => currentStage(b, new Date(y, m - 1, d, 12));
+  assert.equal(at(2026, 10, 24), null);
+  assert.deepEqual(pick(at(2026, 10, 25)), { stage: 'month', year: 2026, age: 36 });
+  assert.equal(at(2026, 11, 10).stage, 'month'); // dazwischen bleibt die letzte Stufe
+  assert.equal(at(2026, 11, 18).stage, 'week');
+  assert.equal(at(2026, 11, 24).stage, 'day');
+  assert.equal(at(2026, 11, 25).stage, 'today');
+  assert.equal(at(2026, 11, 26), null); // vorbei
+});
+
+test('currentStage: Geburtstag im Januar wird schon im Dezember erkannt (Jahr = Geburtstagsjahr)', () => {
+  const jan = { id: 'j', name: 'Jan', day: 5, month: 1, year: 2000 };
+  assert.deepEqual(pick(currentStage(jan, new Date(2026, 11, 6, 8))), { stage: 'month', year: 2027, age: 27 });
+});
+
+test('currentStage: Person noch nicht geboren -> keine Stufe', () => {
+  const baby = { id: 'k', name: 'Kind', day: 25, month: 11, year: 2030 };
+  assert.equal(currentStage(baby, new Date(2026, 10, 25, 12)), null);
+});
+
+function pick(r) { return r && { stage: r.stage, year: r.year, age: r.age }; }
