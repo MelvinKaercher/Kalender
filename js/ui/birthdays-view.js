@@ -2,6 +2,7 @@
 import { el, MONTHS } from './dom.js';
 import { sortByNext, typeInfo, countText } from '../birthdays.js';
 import { statusLabel } from './settings.js';
+import { syncLabel } from './sync-settings.js';
 
 function inLabel(days) {
   if (days === 0) return 'Heute 🎉';
@@ -20,11 +21,21 @@ function notificationsRow(pushStatus, onNotifications) {
     el('span', { class: 'notif-chev', 'aria-hidden': 'true', text: '›' }));
 }
 
-export function renderBirthdays(root, { birthdays, now, onBirthday, onAdd, pushStatus, onNotifications }) {
+/** Zeile "Abgleich" (Geräte-Sync). */
+function syncRow(syncStatus, onSync) {
+  return el('button', { class: 'notif-row', type: 'button', onclick: onSync },
+    el('span', { class: 'notif-ico', 'aria-hidden': 'true', text: '🔄' }),
+    el('span', { class: 'notif-title', text: 'Abgleich' }),
+    el('span', { class: `notif-state${syncStatus.state === 'on' && !syncStatus.error ? ' on' : ''}`, text: syncLabel(syncStatus) }),
+    el('span', { class: 'notif-chev', 'aria-hidden': 'true', text: '›' }));
+}
+
+export function renderBirthdays(root, { birthdays, now, onBirthday, onAdd, pushStatus, onNotifications, syncStatus, onSync }) {
   if (!birthdays.length) {
     root.append(
       el('div', { class: 'bdays' },
         notificationsRow(pushStatus, onNotifications),
+        syncRow(syncStatus, onSync),
         el('div', { class: 'empty' },
           el('div', { class: 'big', text: '🎉' }),
           el('div', { text: 'Noch keine Ereignisse.' }),
@@ -39,6 +50,7 @@ export function renderBirthdays(root, { birthdays, now, onBirthday, onAdd, pushS
   root.append(
     el('div', { class: 'bdays' },
       notificationsRow(pushStatus, onNotifications),
+        syncRow(syncStatus, onSync),
       list.map(({ birthday: b, age, days }) =>
         el('button', { class: 'b-row', type: 'button', 'aria-label': `${typeInfo(b).label}: ${b.name}`, onclick: () => onBirthday(b) },
           el('span', { class: 'b-av', 'aria-hidden': 'true', text: typeInfo(b).emoji }),

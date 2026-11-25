@@ -14,6 +14,8 @@ import { syncBanners } from './ui/banner.js';
 import { dueReminders } from './reminders.js';
 import config from './config.js';
 import { createPush } from './push.js';
+import { createSync } from './sync.js';
+import { openSyncSettings } from './ui/sync-settings.js';
 import { openNotificationSettings } from './ui/settings.js';
 import { getDisplay } from './display.js';
 
@@ -29,6 +31,7 @@ function savedView() {
 
 const state = { view: savedView(), cursor: startOfDay(new Date()) };
 const push = createPush({ config, meta: store.meta, getBirthdays: () => store.birthdays() });
+const syncer = createSync({ config, meta: store.meta, store });
 let renderedDay = toKey(new Date());
 
 /* ───────── Rendering ───────── */
@@ -107,6 +110,8 @@ function render(anim = null) {
     onAdd: () => openBirthdayForm({}),
     onAddHaircut: () => openEventForm({ date: today, haircut: true }),
     pushStatus: push.status(),
+    syncStatus: syncer.status(),
+    onSync: () => openSyncSettings({ syncer, pushToken: store.meta.get('push')?.token || '', onChange: () => render() }),
     onNotifications: () => openNotificationSettings({ push, onChange: () => render() }),
     onSettings: () => openDisplaySettings({ onChange: () => render() }),
     onMonth: (year, month0) => openMonth(year, month0),
@@ -289,6 +294,11 @@ function openFromUrl(href) {
 
 /* ───────── Start ───────── */
 
+/* ───────── Abgleich zwischen Geräten ───────── */
+let deviceSyncTimer = null;
+const runSync = () => syncer.status().state === 'on' && syncer.sync().catch(() => { /* Fehler zeigt das Abgleich-Fenster */ });
+const scheduleSync = () => { clearTimeout(deviceSyncTimer); deviceSyncTimer = setTimeout(runSync, 3000); };
+
 async function start() {
   await store.load();
   lastSignature = birthdaySignature();
@@ -296,10 +306,12 @@ async function start() {
     render();
     checkReminders();
     if (birthdaySignature() !== lastSignature) syncPush();
+    scheduleSync();
   });
   render();
   checkReminders();
   syncPush({ force: true });
+  runSync();
   openFromUrl(location.href);
   navigator.serviceWorker?.addEventListener('message', (e) => e.data?.type === 'open' && openFromUrl(e.data.url));
 
@@ -308,11 +320,13 @@ async function start() {
     if (toKey(new Date()) !== renderedDay) render();
     checkReminders();
   }, 30000);
+  setInterval(() => document.visibilityState === 'visible' && runSync(), 60000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     render();
     checkReminders();
     syncPush();
+    runSync();
   });
 
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

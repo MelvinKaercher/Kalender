@@ -99,7 +99,7 @@ export function openNotificationSettings({ push, onChange = () => {} }) {
     }
 
     parts.push(
-      el('p', { class: 'notes small', text: 'Datenschutz: Dafür werden die Namen und Daten der Ereignisse an deinen eigenen Server (dein Cloudflare-Konto) gesendet. Termine bleiben ausschließlich auf deinem iPhone.' }));
+      el('p', { class: 'notes small', text: 'Datenschutz: Dafür werden die Namen und Daten der Ereignisse an deinen eigenen Server (dein Cloudflare-Konto) gesendet. Termine und Haarschnitte werden dafür nicht gesendet. Beim „Abgleich" liegen sie nur verschlüsselt auf deinem Server.' }));
     sheet.body.replaceChildren(...parts);
   }
 

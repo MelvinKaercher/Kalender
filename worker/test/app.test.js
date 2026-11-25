@@ -244,3 +244,33 @@ test('Cron: Sonstiges bekommt einen eigenen Text ohne "hat Geburtstag"', async (
   await runScheduled(env, { sendPush, now: new Date('2026-11-24T23:00:00Z') }); // 00:00 am Tag selbst
   assert.deepEqual(titles, [['Hochzeitstag heute', 'seit 8 Jahren']]);
 });
+
+/* ───────── Geräte-Abgleich: verschlüsselter Block ───────── */
+async function syncCall(env, path, body, { token = TOKEN, origin = ORIGIN } = {}) {
+  return handleRequest(new Request(`https://w.example${path}`, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, origin }, body: JSON.stringify(body),
+  }), env, { sendPush: async () => ({ status: 201 }) });
+}
+
+test('Sync: leer → Version 0; Hochladen zählt hoch; falsche Basisversion → 409', async () => {
+  const env = mkEnv();
+  let r = await syncCall(env, '/sync/get', {});
+  assert.deepEqual(await r.json(), { version: 0, blob: null });
+  r = await syncCall(env, '/sync/put', { baseVersion: 0, blob: '{"v":1}' });
+  assert.equal(r.status, 200); assert.equal((await r.json()).version, 1);
+  r = await syncCall(env, '/sync/put', { baseVersion: 0, blob: '{"v":2}' });
+  assert.equal(r.status, 409);
+  r = await syncCall(env, '/sync/get', {});
+  assert.deepEqual(await r.json(), { version: 1, blob: '{"v":1}' });
+});
+
+test('Sync: Token Pflicht, Eingaben geprüft, großer Block erlaubt, Abos unberührt', async () => {
+  const env = mkEnv();
+  assert.equal((await syncCall(env, '/sync/get', {}, { token: 'falsch' })).status, 401);
+  assert.equal((await syncCall(env, '/sync/put', { baseVersion: 'x', blob: 'a' })).status, 400);
+  assert.equal((await syncCall(env, '/sync/put', { baseVersion: 0, blob: 5 })).status, 400);
+  const big = 'a'.repeat(300 * 1024);
+  assert.equal((await syncCall(env, '/sync/put', { baseVersion: 0, blob: big })).status, 200);
+  assert.equal((await syncCall(env, '/subscribe', { subscription: { endpoint: 'x' } })).status, 400, 'normale Anfragen bleiben bei 64 KB');
+  assert.equal((await syncCall(env, '/test', { endpoint: 'https://web.push.apple.com/x', pad: 'a'.repeat(70 * 1024) })).status, 413);
+});

@@ -6,6 +6,7 @@ import { EVENT_TYPES } from '../../js/birthdays.js';
 const EVENT_TYPE_KEYS = Object.keys(EVENT_TYPES);
 
 const MAX_BODY_BYTES = 64 * 1024;
+const MAX_SYNC_BYTES = 1024 * 1024; // verschlüsselter Datenblock für den Geräte-Abgleich
 const MAX_BIRTHDAYS = 500;
 const MAX_SUBSCRIPTIONS = 5;
 
@@ -106,12 +107,26 @@ export async function handleRequest(request, env, { sendPush }) {
   const auth = request.headers.get('authorization') || '';
   if (!auth.startsWith('Bearer ') || !(await tokenMatches(auth.slice(7), env.APP_TOKEN))) return reply(401, { error: 'token' });
 
+  const path = new URL(request.url).pathname.replace(/\/+$/, '');
   const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return reply(413, { error: 'too large' });
+  if (new TextEncoder().encode(text).length > (path.startsWith('/sync/') ? MAX_SYNC_BYTES : MAX_BODY_BYTES)) return reply(413, { error: 'too large' });
   let body;
   try { body = JSON.parse(text || '{}'); } catch { return reply(400, { error: 'json' }); }
 
-  const path = new URL(request.url).pathname.replace(/\/+$/, '');
+  // Geräte-Abgleich: ein verschlüsselter Block (der Server kann ihn nicht lesen), geschützt durch Versionszähler
+  if (path === '/sync/get') {
+    const vault = await env.SUBS.get('vault', 'json');
+    return reply(200, vault ? { version: vault.version, blob: vault.blob } : { version: 0, blob: null });
+  }
+  if (path === '/sync/put') {
+    if (!Number.isInteger(body.baseVersion) || body.baseVersion < 0) return reply(400, { error: 'version' });
+    if (typeof body.blob !== 'string' || body.blob.length < 2 || body.blob.length > MAX_SYNC_BYTES - 1024) return reply(400, { error: 'blob' });
+    const vault = await env.SUBS.get('vault', 'json');
+    const current = vault?.version || 0;
+    if (body.baseVersion !== current) return reply(409, { error: 'conflict', version: current });
+    await env.SUBS.put('vault', JSON.stringify({ version: current + 1, blob: body.blob, updatedAt: new Date().toISOString() }));
+    return reply(200, { version: current + 1 });
+  }
 
   if (path === '/subscribe') {
     const subscription = cleanSubscription(body.subscription, env);

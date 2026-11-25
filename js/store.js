@@ -83,27 +83,35 @@ function upsert(list, item) {
   else list[i] = item;
 }
 
+// Gelöschte Einträge merken wir uns (id → Zeitpunkt), damit der Abgleich die Löschung auf andere Geräte bringt.
+function addTomb(kind, id) {
+  const tombs = meta.get('tombs') || { events: {}, birthdays: {} };
+  meta.set('tombs', { ...tombs, [kind]: { ...tombs[kind], [id]: Date.now() } });
+}
+
 export function saveEvent(ev) {
-  const item = { ...ev, id: ev.id || newId() };
+  const item = { ...ev, id: ev.id || newId(), updatedAt: Date.now() };
   upsert(cache.events, item);
   notify();
   return write('events', (s) => s.put(item)).then(() => item);
 }
 
 export function deleteEvent(id) {
+  addTomb('events', id);
   cache.events = cache.events.filter((e) => e.id !== id);
   notify();
   return write('events', (s) => s.delete(id));
 }
 
 export function saveBirthday(b) {
-  const item = { ...b, id: b.id || newId() };
+  const item = { ...b, id: b.id || newId(), updatedAt: Date.now() };
   upsert(cache.birthdays, item);
   notify();
   return write('birthdays', (s) => s.put(item)).then(() => item);
 }
 
 export function deleteBirthday(id) {
+  addTomb('birthdays', id);
   cache.birthdays = cache.birthdays.filter((b) => b.id !== id);
   notify();
   return write('birthdays', (s) => s.delete(id));
@@ -128,3 +136,28 @@ export const meta = {
     return write('meta', (s) => s.delete(key));
   },
 };
+
+/* ───────── Abgleich zwischen Geräten ───────── */
+
+/** Gesamter Datenstand (Termine, Ereignisse, Löschvermerke) – ohne lokale Einstellungen. */
+export function snapshot() {
+  const t = cache.meta.get('tombs') || {};
+  return { events: [...cache.events], birthdays: [...cache.birthdays], tombs: { events: t.events || {}, birthdays: t.birthdays || {} } };
+}
+
+/** Übernimmt einen zusammengeführten Stand, ohne `updatedAt` zu verändern. */
+export async function applySnapshot(snap) {
+  for (const [kind, name] of [['events', 'events'], ['birthdays', 'birthdays']]) {
+    const next = snap[kind] || [];
+    const nextIds = new Set(next.map((x) => x.id));
+    const removed = cache[kind].filter((x) => !nextIds.has(x.id)).map((x) => x.id);
+    const before = new Map(cache[kind].map((x) => [x.id, JSON.stringify(x)]));
+    const changed = next.filter((x) => before.get(x.id) !== JSON.stringify(x));
+    cache[kind] = [...next];
+    if (removed.length || changed.length) {
+      await write(name, (st) => { removed.forEach((id) => st.delete(id)); changed.forEach((x) => st.put(x)); });
+    }
+  }
+  await meta.set('tombs', snap.tombs || { events: {}, birthdays: {} });
+  notify();
+}
