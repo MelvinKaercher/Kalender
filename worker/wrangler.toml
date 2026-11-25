@@ -13,7 +13,7 @@ ALLOWED_ORIGIN = "https://melvinkaercher.github.io"
 # Kontakt für den Push-Dienst. Eine https-Adresse reicht, keine E-Mail nötig.
 VAPID_SUBJECT = "https://melvinkaercher.github.io/Kalender/"
 # EINTRAGEN: der öffentliche Schlüssel aus `node scripts/gen-vapid.mjs`
-VAPID_PUBLIC_KEY = ""
+VAPID_PUBLIC_KEY = "BMiCFsi8JizdLsNCu4sL0InCHRf1l-gvwENeLUZlBLNhAc4LktMK5hEyd6VI0nnJhMdZZfhj5o5FT3PQNNjG6CU"
 # Uhrzeit (Ortszeit des Handys): Vorab-Erinnerungen (1 Monat / 1 Woche / 1 Tag vorher) und der Geburtstag selbst
 ADVANCE_TIME = "09:00"
 BIRTHDAY_TIME = "00:00"
@@ -21,6 +21,6 @@ BIRTHDAY_TIME = "00:00"
 # EINTRAGEN: Kennung aus `npx wrangler kv namespace create SUBS`
 [[kv_namespaces]]
 binding = "SUBS"
-id = ""
+id = "518a2633253940c28fd4a5bf5634a250"
 
 # Geheim (nicht hier eintragen!): VAPID_PRIVATE_KEY und APP_TOKEN, per `npx wrangler secret put …`
