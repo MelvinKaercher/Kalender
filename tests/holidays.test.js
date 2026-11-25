@@ -95,9 +95,24 @@ test('Ferien-Daten sind gültig, geordnet und überlappen nicht', () => {
 
 test('itemsForDay liefert Feiertag und Ferien neben den eigenen Einträgen', () => {
   const r = itemsForDay([], [], new Date(2026, 11, 25));
-  assert.deepEqual(r.holidays, [{ name: '1. Weihnachtstag' }]);
+  assert.deepEqual(r.holidays, [{ name: '1. Weihnachtstag', short: '1. Weih\u00adnachtstag' }]);
   assert.equal(r.vacations[0].name, 'Weihnachtsferien');
   const plain = itemsForDay([], [], new Date(2026, 10, 25));
   assert.deepEqual(plain.holidays, []);
   assert.deepEqual(plain.vacations, []);
+});
+
+test('Jeder Feiertag hat einen Kurznamen; Trennstellen nur an Wortgrenzen und ohne sie ergibt sich der Name', () => {
+  const plain = (t) => t.replaceAll('\u00ad', '');
+  for (const year of [2026, 2027, 2030]) {
+    for (const h of holidaysOfYear(year)) {
+      assert.ok(h.short && h.short.length > 0, h.name);
+      assert.ok(plain(h.short).length <= 16, `${h.name}: Kurzname zu lang für eine Monatszelle`);
+    }
+  }
+  const by = Object.fromEntries(holidaysOfYear(2026).map((h) => [h.name, plain(h.short)]));
+  assert.equal(by['Pfingstmontag'], 'Pfingstmontag');
+  assert.equal(by['Christi Himmelfahrt'], 'Himmelfahrt');
+  assert.equal(by['Tag der Deutschen Einheit'], 'Tag der Einheit');
+  assert.equal(by['Heilige Drei Könige'], 'Hl. Drei Könige');
 });

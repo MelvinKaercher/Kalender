@@ -60,3 +60,9 @@ Wunsch von Melvin: wie im Apple-Kalender herauszoomen und Monate schnell wählen
 - **Anzeige:** Feiertage grün, Ferien gelb, ein-/ausschaltbar (lokal, `meta`-Eintrag `display`).
 - **Verschieben:** Langdruck ca. 0,4 s, ziehen, Einrasten auf 15 Minuten, Dauer bleibt, Auto-Scroll am Rand, Zeitanzeige am Finger. Touch-Ereignisse mit `passive:false` nur am Termin-Block, damit normales Scrollen und Antippen unverändert bleiben. Ganztägige Termine und Geburtstage sind nicht verschiebbar; Größe ändern gibt es (noch) nicht.
 - **Nicht testbar hier:** das echte Gefühl auf iOS (Dauer des Langdrucks, Schwelle der Zwei-Finger-Geste). Die Schwellen stehen als Konstanten (`HOLD_MS` in `js/ui/week-drag.js`, Verhältniswerte in `js/app.js`) und lassen sich nach dem Test auf dem iPhone nachjustieren.
+
+## Runde 4 – Feiertagsnamen und Ereignisse
+- **Feiertage mit Namen:** Im Monat steht der Kurzname grün unter der Zahl (statt grünem Punkt), in der Woche als umbrechender Chip in der Ganztags-Zeile. Kurznamen enthalten weiche Trennstellen (z. B. „Pfingst­montag"). Dafür sind die Monatszeilen mindestens 76 px hoch.
+- **Ereignisse statt Geburtstage:** Das Konzept „einmal speichern, jedes Jahr berechnen" gilt für drei Arten: Geburtstag, Jahrestag, Sonstiges (Feld `type`, fehlender Wert = Geburtstag, daher keine Datenmigration). Intern bleiben Namen wie `birthdays` und der Store `birthdays` bestehen (historisch); sichtbar heißt alles „Ereignis".
+- **Texte je Art:** Geburtstag „wird 36" / „Anna hat in 1 Monat Geburtstag"; Jahrestag „8. Jahrestag" / „Hochzeitstag in 1 Monat"; Sonstiges „seit 6 Jahren" (ohne Jahr: das Datum).
+- **Server:** akzeptiert `type` (ältere Clients ohne `type` gelten als Geburtstag), unbekannte Arten werden abgelehnt. Die vier Stufen (1 Monat, 1 Woche, 1 Tag, am Tag) gelten für alle Arten.

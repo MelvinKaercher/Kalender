@@ -1,5 +1,5 @@
-// Push-Benachrichtigungen für Geburtstage (Client-Seite).
-// Die App meldet das Gerät beim eigenen Push-Server an und hält dort die Geburtstage aktuell.
+// Push-Benachrichtigungen für jährliche Ereignisse – Geburtstage, Jahrestage … (Client-Seite).
+// Die App meldet das Gerät beim eigenen Push-Server an und hält dort die Ereignisse aktuell.
 // Alle Browser-Zugriffe sind austauschbar (`env`), damit sich das Modul in Node testen lässt.
 
 export class PushError extends Error {
@@ -48,7 +48,7 @@ export function createPush({ config, meta, getBirthdays, env = browserEnv() }) {
     return { state: state() ? 'on' : 'off' };
   }
 
-  const payload = () => getBirthdays().map(({ id, name, day, month, year }) => ({ id, name, day, month, year: year ?? null }));
+  const payload = () => getBirthdays().map(({ id, name, day, month, year, type }) => ({ id, name, day, month, year: year ?? null, type: type || 'birthday' }));
 
   async function post(path, body, token) {
     let res;

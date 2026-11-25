@@ -148,11 +148,11 @@ input, select, textarea { font: inherit; color: inherit; }
 /* Das Raster füllt die freie Höhe; mit "Als Nächstes"-Liste schrumpft es auf mindestens 56px je Zeile. */
 .grid {
   flex: 1 1 auto; display: grid; grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(var(--rows, 6), minmax(56px, 1fr));
+  grid-template-rows: repeat(var(--rows, 6), minmax(76px, 1fr));
   padding: 0 10px; border-top: 1px solid var(--line);
 }
 .cell {
-  min-height: 56px; display: flex; flex-direction: column; align-items: center;
+  min-height: 76px; display: flex; flex-direction: column; align-items: center;
   padding-top: 8px; gap: 3px; border-radius: 14px;
 }
 .cell:active { background: var(--bg-soft); }
@@ -170,7 +170,12 @@ input, select, textarea { font: inherit; color: inherit; }
 .dots { height: 6px; display: flex; gap: 3px; }
 .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--c, var(--accent)); }
 .dot.bday { background: var(--bday); }
-.dot.holiday { background: var(--holiday); }
+.hname {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  max-width: 100%; padding: 0 1px; text-align: center;
+  font-size: 8.5px; line-height: 1.12; font-weight: 700; color: var(--holiday);
+  hyphens: manual; -webkit-hyphens: manual; overflow-wrap: anywhere;
+}
 
 .upcoming { padding: 18px 20px 24px; }
 .upcoming h2 {
@@ -215,7 +220,11 @@ input, select, textarea { font: inherit; color: inherit; }
   background: var(--c-soft, var(--accent-soft)); color: var(--accent-ink);
 }
 .chip.bday { background: var(--bday-soft); color: var(--bday-ink); }
-.chip.holiday { background: var(--holiday-soft); color: var(--holiday-ink); }
+.chip.holiday {
+  background: var(--holiday-soft); color: var(--holiday-ink);
+  white-space: normal; overflow: visible; text-overflow: clip; text-align: center;
+  font-size: 9px; line-height: 1.15; padding: 2px 1px; overflow-wrap: anywhere;
+}
 .w-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .w-body { position: relative; height: calc(24 * var(--hour)); }
 .w-times { position: relative; }
@@ -269,7 +278,7 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .b-av {
   width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--bday-soft); color: var(--bday-ink); font-weight: 700; font-size: 17px;
+  background: var(--bday-soft); color: var(--bday-ink); font-weight: 700; font-size: 22px;
 }
 .b-name { font-size: 17px; font-weight: 600; }
 .b-date { font-size: 14px; color: var(--text-2); margin-top: 1px; }
@@ -392,7 +401,13 @@ input, select, textarea { font: inherit; color: inherit; }
 .mini-grid .holiday { color: var(--holiday); font-weight: 700; }
 .year .notif-row { margin-top: 18px; }
 
-/* Benachrichtigungen: Zeile in der Geburtstagsliste + Einstellungs-Sheet */
+/* Typ-Auswahl im Ereignis-Formular */
+.seg { display: flex; gap: 4px; margin-top: 14px; padding: 4px; background: var(--bg-soft); border-radius: 12px; }
+.seg-btn { flex: 1; padding: 9px 2px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+.seg-btn.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .18); }
+@media (prefers-color-scheme: dark) { .seg-btn.on { background: var(--line-strong); } }
+
+/* Benachrichtigungen: Zeile in der Ereignisliste + Einstellungs-Sheet */
 .notif-row {
   width: 100%; display: grid; grid-template-columns: 30px 1fr auto auto; align-items: center; gap: 8px;
   padding: 14px 16px; margin: 6px 0 4px; text-align: left;

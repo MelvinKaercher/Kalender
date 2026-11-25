@@ -1,9 +1,10 @@
-// Monatsansicht: Raster mit Punkten für Termine/Geburtstage + "Als Nächstes"-Liste.
+// Monatsansicht: Raster mit Punkten für Termine/Ereignisse + "Als Nächstes"-Liste.
 import { el, WEEKDAYS, fmtWeekdayDay } from './dom.js';
 import { monthGrid, isSameDay, addDays, startOfDay } from '../calendar.js';
 import { itemsForDay } from '../items.js';
 import { eventEnd } from '../reminders.js';
 import { colorStyle } from '../colors.js';
+import { typeInfo, countText } from '../birthdays.js';
 
 const UPCOMING_LIMIT = 3;
 const UPCOMING_DAYS = 60;
@@ -15,14 +16,13 @@ function cell(c, today, events, birthdays, display, onDay) {
   const holiday = display.holidays ? items.holidays[0] : null;
   const vacation = display.vacations ? items.vacations[0] : null;
   const dots = [
-    ...(holiday ? [el('i', { class: 'dot holiday' })] : []),
     ...items.events.slice(0, 2).map((ev) => el('i', { class: 'dot', style: colorStyle(ev.color) })),
     ...(nBdays ? [el('i', { class: 'dot bday' })] : []),
   ];
   const label = [
     c.date.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }),
     nEvents ? `${nEvents} ${nEvents === 1 ? 'Termin' : 'Termine'}` : null,
-    nBdays ? `${nBdays} ${nBdays === 1 ? 'Geburtstag' : 'Geburtstage'}` : null,
+    nBdays ? `${nBdays} ${nBdays === 1 ? 'Ereignis' : 'Ereignisse'}: ${items.birthdays.map((x) => x.birthday.name).join(', ')}` : null,
     holiday ? `Feiertag: ${holiday.name}` : null,
     vacation ? vacation.name : null,
   ].filter(Boolean).join(', ');
@@ -32,10 +32,12 @@ function cell(c, today, events, birthdays, display, onDay) {
     'aria-label': label,
     'data-key': c.key,
     onclick: () => onDay(c.date),
-  }, el('span', { class: 'num', text: String(c.date.getDate()) }), el('span', { class: 'dots' }, dots));
+  }, el('span', { class: 'num', text: String(c.date.getDate()) }),
+    el('span', { class: 'dots' }, dots),
+    holiday ? el('span', { class: 'hname', text: holiday.short }) : null);
 }
 
-/** Die nächsten Termine/Geburtstage ab jetzt. */
+/** Die nächsten Termine und Ereignisse ab jetzt. */
 export function upcoming(events, birthdays, now, limit = UPCOMING_LIMIT) {
   const today = startOfDay(now);
   const out = [];
@@ -64,8 +66,8 @@ function upcomingList(list, onEvent, onBirthday) {
             el('span', { class: 'up-meta', text: it.event.allDay ? 'Ganztägig' : it.event.start }))
         : el('button', { class: 'up-row', type: 'button', onclick: () => onBirthday(it.birthday) },
             el('span', { class: 'up-when', text: whenLabel(it) }),
-            el('span', { class: 'up-title' }, el('span', { class: 'bar bday' }), `🎂 ${it.birthday.name}`),
-            el('span', { class: 'up-meta', text: it.age ? `wird ${it.age}` : '' }))
+            el('span', { class: 'up-title' }, el('span', { class: 'bar bday' }), `${typeInfo(it.birthday).emoji} ${it.birthday.name}`),
+            el('span', { class: 'up-meta', text: countText(it.birthday, it.age) || '' }))
     ));
 }
 

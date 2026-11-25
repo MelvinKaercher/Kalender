@@ -64,8 +64,8 @@ test('enable: Berechtigung -> Abo -> /subscribe mit Token, Geburtstagen und Zeit
   assert.equal(body.tz, 'Europe/Berlin');
   assert.equal(body.subscription.endpoint, 'https://web.push.apple.com/new');
   assert.deepEqual(body.birthdays, [
-    { id: 'a', name: 'Anna', day: 25, month: 11, year: 1990 }, // nur die nötigen Felder
-    { id: 'b', name: 'Ben', day: 1, month: 2, year: null },
+    { id: 'a', name: 'Anna', day: 25, month: 11, year: 1990, type: 'birthday' }, // nur die nötigen Felder
+    { id: 'b', name: 'Ben', day: 1, month: 2, year: null, type: 'birthday' }, // fehlender Typ = Geburtstag
   ]);
   assert.deepEqual(store.get('push'), { token: 'mein-code', endpoint: 'https://web.push.apple.com/new' });
 });
@@ -155,4 +155,22 @@ test('sendTest: ok, abgelaufen (410) setzt Zustand zurück', async () => {
   await assert.rejects(gone.push.sendTest(), (e) => e.code === 'expired');
   assert.equal(gone.push.status().state, 'off');
   await assert.rejects(setup().push.sendTest(), (e) => e.code === 'unconfigured');
+});
+
+test('sync: Typ (Jahrestag, Sonstiges) wird mitgeschickt', async () => {
+  const { push, calls } = setup({ subscribed: true, tokenState: { token: 'tok', endpoint: 'https://web.push.apple.com/old' } });
+  // eigene Liste mit Typen
+  const withTypes = createPush({
+    config: CONFIG, meta: { get: () => ({ token: 'tok', endpoint: 'https://web.push.apple.com/old' }), set: async () => {}, delete: async () => {} },
+    getBirthdays: () => [{ id: 'h', name: 'Hochzeitstag', day: 3, month: 6, year: 2018, type: 'anniversary' }, { id: 'n', name: 'Namenstag', day: 19, month: 3, type: 'other' }],
+    env: {
+      Notification: { permission: 'granted' }, hasPushManager: () => true, isInstalled: () => true, timeZone: () => 'Europe/Berlin',
+      getRegistration: async () => ({ pushManager: { getSubscription: async () => ({ endpoint: 'https://web.push.apple.com/old', toJSON: () => ({}) }) } }),
+      fetch: async (url, init) => { calls.push(['fetch', new URL(url).pathname, JSON.parse(init.body)]); return { ok: true, status: 200 }; },
+    },
+  });
+  await withTypes.sync();
+  const body = calls.filter((c) => c[0] === 'fetch').at(-1)[2];
+  assert.deepEqual(body.birthdays.map((x) => [x.name, x.type, x.year]), [['Hochzeitstag', 'anniversary', 2018], ['Namenstag', 'other', null]]);
+  assert.ok(push);
 });

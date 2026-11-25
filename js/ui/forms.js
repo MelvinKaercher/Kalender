@@ -4,6 +4,7 @@ import { openSheet } from './sheet.js';
 import * as store from '../store.js';
 import { toKey, fromMinutes, toMinutes, daysInMonth } from '../calendar.js';
 import { REMIND_OPTIONS } from '../reminders.js';
+import { EVENT_TYPES, typeOf } from '../birthdays.js';
 import { PALETTE, colorStyle, normalizeHex } from '../colors.js';
 
 const barBtn = (label, onclick, strong = false) =>
@@ -177,49 +178,87 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
   return sheet;
 }
 
-/* ───────── Geburtstag ───────── */
+/* ───────── Ereignis (Geburtstag, Jahrestag, Sonstiges – jedes Jahr wiederkehrend) ───────── */
+
+// Beschriftungen je Typ
+const TYPE_TEXT = {
+  birthday: {
+    name: 'Name', year: 'Geburtsjahr (optional)', yearLabel: 'Geburtsjahr', yearWord: 'Geburtsjahr',
+    hint: 'Der Geburtstag wiederholt sich automatisch jedes Jahr. Mit Geburtsjahr zeigt die App das Alter an.',
+  },
+  anniversary: {
+    name: 'Titel, z. B. Hochzeitstag', year: 'Jahr, z. B. der Hochzeit (optional)', yearLabel: 'Jahr', yearWord: 'Jahr',
+    hint: 'Das Ereignis wiederholt sich automatisch jedes Jahr. Mit Jahr zählt die App die Jahrestage mit.',
+  },
+  other: {
+    name: 'Titel, z. B. Namenstag', year: 'Startjahr (optional)', yearLabel: 'Startjahr', yearWord: 'Startjahr',
+    hint: 'Das Ereignis wiederholt sich automatisch jedes Jahr. Mit Startjahr zeigt die App „seit N Jahren" an.',
+  },
+};
 
 export function openBirthdayForm({ birthday = null, date = new Date() } = {}) {
   const isNew = !birthday;
   const b = birthday || { id: null, name: '', day: date.getDate(), month: date.getMonth() + 1, year: null };
   const thisYear = new Date().getFullYear();
+  let type = typeOf(b);
 
-  const name = el('input', { type: 'text', class: 'title', placeholder: 'Name', value: b.name, maxlength: '80', autocomplete: 'off', enterkeyhint: 'done' });
+  const name = el('input', { type: 'text', class: 'title', value: b.name, maxlength: '80', autocomplete: 'off', enterkeyhint: 'done' });
   const daySel = el('select', { 'aria-label': 'Tag' }, Array.from({ length: 31 }, (_, i) => el('option', { value: String(i + 1), text: `${i + 1}.` })));
   const monthSel = el('select', { 'aria-label': 'Monat' }, MONTHS.map((m, i) => el('option', { value: String(i + 1), text: m })));
   daySel.value = String(b.day);
   monthSel.value = String(b.month);
-  const year = el('input', { type: 'number', inputmode: 'numeric', placeholder: 'Jahr (optional)', min: '1900', max: String(thisYear), value: b.year ? String(b.year) : '', 'aria-label': 'Geburtsjahr' });
+  const year = el('input', { type: 'number', inputmode: 'numeric', min: '1900', max: String(thisYear), value: b.year ? String(b.year) : '' });
+  const hint = el('p', { class: 'form-error', style: 'color:var(--text-2)' });
   const error = el('div', { class: 'form-error', role: 'alert' });
+
+  // Typ-Auswahl: Geburtstag | Jahrestag | Sonstiges
+  const typeButtons = Object.entries(EVENT_TYPES).map(([key, info]) =>
+    el('button', { class: 'seg-btn', type: 'button', role: 'radio', 'data-type': key, onclick: () => { type = key; paintType(); } },
+      `${info.emoji} ${info.label}`));
+  function paintType() {
+    const t = TYPE_TEXT[type];
+    typeButtons.forEach((btn) => {
+      const on = btn.dataset.type === type;
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-checked', String(on));
+    });
+    name.placeholder = t.name;
+    year.placeholder = t.year;
+    year.setAttribute('aria-label', t.yearLabel);
+    hint.textContent = t.hint;
+    error.textContent = '';
+  }
+  paintType();
 
   async function save() {
     const n = name.value.trim();
-    if (!n) { error.textContent = 'Bitte einen Namen eingeben.'; shake(name.parentElement); name.focus(); return; }
+    if (!n) { error.textContent = type === 'birthday' ? 'Bitte einen Namen eingeben.' : 'Bitte einen Titel eingeben.'; shake(name.parentElement); name.focus(); return; }
     const day = Number(daySel.value);
     const month = Number(monthSel.value);
     if (day > daysInMonth(2000, month - 1)) { error.textContent = `${MONTHS[month - 1]} hat nur ${daysInMonth(2000, month - 1)} Tage.`; shake(daySel); return; }
     let y = null;
     if (year.value.trim() !== '') {
       y = Number(year.value);
-      if (!Number.isInteger(y) || y < 1900 || y > thisYear) { error.textContent = `Das Geburtsjahr muss zwischen 1900 und ${thisYear} liegen.`; shake(year); return; }
+      if (!Number.isInteger(y) || y < 1900 || y > thisYear) { error.textContent = `Das ${TYPE_TEXT[type].yearWord} muss zwischen 1900 und ${thisYear} liegen.`; shake(year); return; }
     }
-    await store.saveBirthday({ id: b.id, name: n, day, month, year: y });
+    await store.saveBirthday({ id: b.id, name: n, day, month, year: y, type });
     sheet.close();
   }
 
   const content = [
+    el('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Art des Ereignisses' }, typeButtons),
     el('div', { class: 'group' }, el('div', { class: 'row' }, name)),
     el('div', { class: 'group' },
       el('div', { class: 'row' }, el('div', { class: 'split' }, daySel, monthSel)),
       el('div', { class: 'row' }, year),
     ),
-    el('p', { class: 'form-error', style: 'color:var(--text-2)', text: 'Der Geburtstag wiederholt sich automatisch jedes Jahr. Mit Geburtsjahr zeigt die App das Alter an.' }),
+    hint,
     error,
     isNew ? null : deleteButton(async () => { await store.deleteBirthday(b.id); sheet.close(); }),
   ];
 
   const sheet = openSheet({
-    title: isNew ? 'Neuer Geburtstag' : 'Geburtstag',
+    title: isNew ? 'Neues Ereignis' : 'Ereignis',
     left: barBtn('Abbrechen', () => sheet.close()),
     right: barBtn(isNew ? 'Hinzufügen' : 'Sichern', save, true),
     content,

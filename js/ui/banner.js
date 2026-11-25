@@ -1,5 +1,6 @@
 // Erinnerungs-Banner am oberen Rand. Bleiben stehen, bis sie weggewischt/angetippt werden.
 import { el } from './dom.js';
+import { typeInfo } from '../birthdays.js';
 
 const shown = new Map(); // key -> Element
 
@@ -24,7 +25,7 @@ export function syncBanners(due, { onOpen, onDismiss }) {
   for (const item of due) {
     if (shown.has(item.key)) continue;
     const node = el('div', { class: `banner${item.kind === 'birthday' ? ' bday' : ''}`, role: 'status' },
-      el('span', { class: 'ico', 'aria-hidden': 'true', text: item.kind === 'birthday' ? '🎂' : '🔔' }),
+      el('span', { class: 'ico', 'aria-hidden': 'true', text: item.kind === 'birthday' ? typeInfo(item.birthday).emoji : '🔔' }),
       el('button', { class: 'main', type: 'button', onclick: () => { onDismiss(item); onOpen(item); } },
         el('div', { class: 'b-title', text: item.title }),
         el('div', { class: 'b-text', text: item.text })),

@@ -78,7 +78,7 @@ test('subscribe: speichert Abo, Zeitzone und Geburtstage; prüft Eingaben', asyn
   assert.equal((await subscribe(env)).status, 200);
   const [rec] = [...env.SUBS.map.values()].map((v) => JSON.parse(v));
   assert.equal(rec.tz, 'Europe/Berlin');
-  assert.deepEqual(rec.birthdays, [{ id: 'anna', name: 'Anna', day: 25, month: 11, year: 1990 }]);
+  assert.deepEqual(rec.birthdays, [{ id: 'anna', name: 'Anna', day: 25, month: 11, year: 1990, type: 'birthday' }]); // ohne Typ = Geburtstag
   assert.deepEqual(rec.sent, {});
 
   const e = mkEnv();
@@ -221,4 +221,26 @@ test('Cron: mehrere Abos werden unabhängig bedient (Zeitzonen)', async () => {
   await runScheduled(env, { sendPush, now: new Date('2026-11-25T05:00:00Z') }); // 00:00 New York
   assert.equal(to.filter((x) => x === 'ny').length >= 1, true);
   assert.equal(to.filter((x) => x === 'berlin').length, 1, 'Berlin nur einmal');
+});
+
+test('Ereignis-Typen: gültige werden gespeichert, unbekannte abgelehnt', async () => {
+  const env = mkEnv();
+  const list = [
+    { id: 'hz', name: 'Hochzeitstag', day: 3, month: 6, year: 2018, type: 'anniversary' },
+    { id: 'nt', name: 'Namenstag', day: 19, month: 3, year: null, type: 'other' },
+    { id: 'an', name: 'Anna', day: 25, month: 11, year: 1990, type: 'birthday' },
+  ];
+  assert.equal((await subscribe(env, { birthdays: list })).status, 200);
+  const rec = JSON.parse([...env.SUBS.map.values()][0]);
+  assert.deepEqual(rec.birthdays.map((b) => b.type), ['anniversary', 'other', 'birthday']);
+  assert.equal((await subscribe(mkEnv(), { birthdays: [{ id: 'x', name: 'X', day: 1, month: 1, year: null, type: 'hack' }] })).status, 400);
+});
+
+test('Cron: Jahrestag bekommt einen eigenen Text ohne "hat Geburtstag"', async () => {
+  const env = mkEnv();
+  await subscribe(env, { birthdays: [{ id: 'hz', name: 'Hochzeitstag', day: 25, month: 11, year: 2018, type: 'anniversary' }] });
+  const titles = [];
+  const sendPush = async (s, m) => (titles.push([m.title, m.body]), { status: 201 });
+  await runScheduled(env, { sendPush, now: new Date('2026-11-24T23:00:00Z') }); // 00:00 am Tag selbst
+  assert.deepEqual(titles, [['Hochzeitstag heute', '8. Jahrestag']]);
 });

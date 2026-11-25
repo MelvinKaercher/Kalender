@@ -3,6 +3,7 @@ import { el, WEEKDAYS } from './dom.js';
 import { weekDays, isSameDay, toKey, toMinutes, fromMinutes } from '../calendar.js';
 import { itemsForDay } from '../items.js';
 import { colorStyle } from '../colors.js';
+import { typeInfo } from '../birthdays.js';
 import { attachDrag, clickSuppressed } from './week-drag.js';
 
 const HOUR = 52; // px pro Stunde – muss zu --hour in styles.css passen
@@ -67,9 +68,9 @@ export function renderWeek(root, { cursor, today, now, events, birthdays, displa
         el('span', { class: 'gutter', text: 'ganzt.' }),
         data.map((x) =>
           el('div', { class: 'ad' },
-            holidayOf(x) ? el('span', { class: 'chip holiday', title: holidayOf(x).name }, holidayOf(x).name) : null,
+            holidayOf(x) ? el('span', { class: 'chip holiday', title: holidayOf(x).name }, holidayOf(x).short) : null,
             x.birthdays.map(({ birthday }) =>
-              el('button', { class: 'chip bday', type: 'button', onclick: () => onBirthday(birthday) }, `🎂 ${birthday.name}`)),
+              el('button', { class: 'chip bday', type: 'button', onclick: () => onBirthday(birthday) }, `${typeInfo(birthday).emoji} ${birthday.name}`)),
             x.events.filter((e) => e.allDay).map((e) =>
               el('button', { class: 'chip', type: 'button', style: colorStyle(e.color), onclick: () => onEvent(e) }, e.title))
           )

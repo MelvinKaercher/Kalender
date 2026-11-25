@@ -21,35 +21,39 @@ export function easterSunday(year) {
   return new Date(year, month - 1, day);
 }
 
-// Feste Feiertage: [Monat, Tag, Name]. Nicht in BW: Reformationstag, Mariä Himmelfahrt, Buß- und Bettag.
+// Jeder Feiertag hat den vollen Namen und einen Kurznamen für enge Stellen (Monatszelle, Wochenspalte).
+// Der Kurzname enthält weiche Trennstellen (\u00ad), an denen lange Wörter umbrechen dürfen.
+const SHY = '\u00ad';
+
+// Feste Feiertage: [Monat, Tag, Name, Kurzname]. Nicht in BW: Reformationstag, Mariä Himmelfahrt, Buß- und Bettag.
 const FIXED = [
-  [1, 1, 'Neujahr'],
-  [1, 6, 'Heilige Drei Könige'],
-  [5, 1, 'Tag der Arbeit'],
-  [10, 3, 'Tag der Deutschen Einheit'],
-  [11, 1, 'Allerheiligen'],
-  [12, 25, '1. Weihnachtstag'],
-  [12, 26, '2. Weihnachtstag'],
+  [1, 1, 'Neujahr', 'Neujahr'],
+  [1, 6, 'Heilige Drei Könige', 'Hl. Drei Könige'],
+  [5, 1, 'Tag der Arbeit', 'Tag der Arbeit'],
+  [10, 3, 'Tag der Deutschen Einheit', 'Tag der Einheit'],
+  [11, 1, 'Allerheiligen', `Aller${SHY}heiligen`],
+  [12, 25, '1. Weihnachtstag', `1. Weih${SHY}nachtstag`],
+  [12, 26, '2. Weihnachtstag', `2. Weih${SHY}nachtstag`],
 ];
 
-// Bewegliche Feiertage: Abstand in Tagen zum Ostersonntag.
+// Bewegliche Feiertage: [Abstand in Tagen zum Ostersonntag, Name, Kurzname].
 const MOVABLE = [
-  [-2, 'Karfreitag'],
-  [1, 'Ostermontag'],
-  [39, 'Christi Himmelfahrt'],
-  [50, 'Pfingstmontag'],
-  [60, 'Fronleichnam'],
+  [-2, 'Karfreitag', `Kar${SHY}freitag`],
+  [1, 'Ostermontag', `Oster${SHY}montag`],
+  [39, 'Christi Himmelfahrt', `Himmel${SHY}fahrt`],
+  [50, 'Pfingstmontag', `Pfingst${SHY}montag`],
+  [60, 'Fronleichnam', `Fron${SHY}leichnam`],
 ];
 
 const cache = new Map();
 
-/** Alle Feiertage des Jahres, nach Datum sortiert: [{ date, name }] */
+/** Alle Feiertage des Jahres, nach Datum sortiert: [{ date, name, short }] */
 export function holidaysOfYear(year) {
   if (cache.has(year)) return cache.get(year);
   const easter = easterSunday(year);
   const list = [
-    ...FIXED.map(([m, d, name]) => ({ date: new Date(year, m - 1, d), name })),
-    ...MOVABLE.map(([offset, name]) => ({ date: addDays(easter, offset), name })),
+    ...FIXED.map(([m, d, name, short]) => ({ date: new Date(year, m - 1, d), name, short })),
+    ...MOVABLE.map(([offset, name, short]) => ({ date: addDays(easter, offset), name, short })),
   ].sort((a, b) => a.date - b.date);
   cache.set(year, list);
   return list;

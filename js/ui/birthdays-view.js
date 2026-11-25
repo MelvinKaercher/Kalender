@@ -1,6 +1,6 @@
-// Geburtstagsliste, sortiert nach dem nächsten Auftreten.
+// Liste der jährlichen Ereignisse (Geburtstage, Jahrestage, Sonstiges), sortiert nach dem nächsten Auftreten.
 import { el, MONTHS } from './dom.js';
-import { sortByNext } from '../birthdays.js';
+import { sortByNext, typeInfo, countText } from '../birthdays.js';
 import { statusLabel } from './settings.js';
 
 function inLabel(days) {
@@ -26,10 +26,10 @@ export function renderBirthdays(root, { birthdays, now, onBirthday, onAdd, pushS
       el('div', { class: 'bdays' },
         notificationsRow(pushStatus, onNotifications),
         el('div', { class: 'empty' },
-          el('div', { class: 'big', text: '🎂' }),
-          el('div', { text: 'Noch keine Geburtstage.' }),
-          el('div', { text: 'Einmal eintragen – sie kehren jedes Jahr wieder.' }),
-          el('button', { type: 'button', onclick: onAdd, text: 'Geburtstag hinzufügen' })
+          el('div', { class: 'big', text: '🎉' }),
+          el('div', { text: 'Noch keine Ereignisse.' }),
+          el('div', { text: 'Geburtstage, Jahrestage und mehr: einmal eintragen, jedes Jahr dabei.' }),
+          el('button', { type: 'button', onclick: onAdd, text: 'Ereignis hinzufügen' })
         )
       )
     );
@@ -40,11 +40,11 @@ export function renderBirthdays(root, { birthdays, now, onBirthday, onAdd, pushS
     el('div', { class: 'bdays' },
       notificationsRow(pushStatus, onNotifications),
       list.map(({ birthday: b, age, days }) =>
-        el('button', { class: 'b-row', type: 'button', onclick: () => onBirthday(b) },
-          el('span', { class: 'b-av', 'aria-hidden': 'true', text: (b.name.trim()[0] || '?').toUpperCase() }),
+        el('button', { class: 'b-row', type: 'button', 'aria-label': `${typeInfo(b).label}: ${b.name}`, onclick: () => onBirthday(b) },
+          el('span', { class: 'b-av', 'aria-hidden': 'true', text: typeInfo(b).emoji }),
           el('span', {},
             el('div', { class: 'b-name', text: b.name }),
-            el('div', { class: 'b-date', text: `${b.day}. ${MONTHS[b.month - 1]}${age ? ` · wird ${age}` : ''}` })),
+            el('div', { class: 'b-date', text: `${b.day}. ${MONTHS[b.month - 1]}${countText(b, age) ? ` · ${countText(b, age)}` : ''}` })),
           el('span', { class: `b-in${days <= 7 ? ' soon' : ''}`, text: inLabel(days) })
         ))
     )

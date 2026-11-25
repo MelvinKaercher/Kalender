@@ -6,6 +6,7 @@ import * as store from '../store.js';
 import { openEventForm, openBirthdayForm } from './forms.js';
 import { colorStyle } from '../colors.js';
 import { getDisplay } from '../display.js';
+import { typeInfo, countText } from '../birthdays.js';
 import { fromKey } from '../calendar.js';
 
 export function openDaySheet(date) {
@@ -23,10 +24,10 @@ export function openDaySheet(date) {
       v.start === v.end ? null : `${fmtDayShort(fromKey(v.start))} – ${fmtDayShort(fromKey(v.end))}`)) : []),
     ...birthdays.map(({ birthday, age }) =>
       el('button', { class: 'day-row bday', type: 'button', onclick: () => openBirthdayForm({ birthday }) },
-        el('span', { class: 'when', text: 'Geburtstag' }),
+        el('span', { class: 'when', text: typeInfo(birthday).label }),
         el('span', { class: 'what' },
-          el('div', { class: 'name', text: `🎂 ${birthday.name}` }),
-          age ? el('div', { class: 'note', text: `wird ${age}` }) : null))),
+          el('div', { class: 'name', text: `${typeInfo(birthday).emoji} ${birthday.name}` }),
+          countText(birthday, age) ? el('div', { class: 'note', text: countText(birthday, age) }) : null))),
     ...events.map((ev) =>
       el('button', { class: 'day-row', type: 'button', style: colorStyle(ev.color), onclick: () => openEventForm({ event: ev }) },
         el('span', { class: 'when', text: fmtRange(ev) }),

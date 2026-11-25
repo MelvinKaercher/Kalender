@@ -1,6 +1,9 @@
 // HTTP-Handler und Cron-Lauf. Alle Abhängigkeiten (KV, Push-Versand, Uhr) werden
 // übergeben, damit sich alles ohne Cloudflare testen lässt.
 import { dueNotifications, pruneSent, isValidTimeZone, isTime, DEFAULT_TIMES } from './logic.js';
+import { EVENT_TYPES } from '../../js/birthdays.js';
+
+const EVENT_TYPE_KEYS = Object.keys(EVENT_TYPES);
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_BIRTHDAYS = 500;
@@ -39,11 +42,13 @@ function cleanBirthdays(list) {
   for (const b of list) {
     if (!b || typeof b !== 'object') return null;
     const { id, name, day, month, year } = b;
+    const type = b.type ?? 'birthday';
+    if (!EVENT_TYPE_KEYS.includes(type)) return null;
     if (typeof id !== 'string' || !/^[\w-]{1,64}$/.test(id)) return null;
     if (typeof name !== 'string' || name.length < 1 || name.length > 80) return null;
     if (!Number.isInteger(day) || day < 1 || day > 31 || !Number.isInteger(month) || month < 1 || month > 12) return null;
     if (year !== null && year !== undefined && (!Number.isInteger(year) || year < 1900 || year > 2200)) return null;
-    out.push({ id, name, day, month, year: year ?? null });
+    out.push({ id, name, day, month, year: year ?? null, type });
   }
   return out;
 }

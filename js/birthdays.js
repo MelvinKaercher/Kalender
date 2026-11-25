@@ -1,14 +1,33 @@
-// Geburtstage: werden EINMAL gespeichert ({ id, name, day, month, year|null })
-// und für jedes Jahr neu berechnet – es werden keine Kopien angelegt.
+// Jährliche Ereignisse (Geburtstage, Jahrestage, Sonstiges): werden EINMAL gespeichert
+// ({ id, name, day, month, year|null, type }) und für jedes Jahr neu berechnet – es werden keine Kopien angelegt.
+// Der Name "birthdays" ist historisch: Die Datei kennt alle Typen, Einträge ohne `type` gelten als Geburtstag.
 import { isLeapYear, isSameDay, startOfDay, addDays, daysInMonth } from './calendar.js';
 
-/** Datum des Geburtstags im Jahr `year`. 29.2. wird in Nicht-Schaltjahren zum 28.2. */
+/** Typen jährlicher Ereignisse. */
+export const EVENT_TYPES = {
+  birthday: { label: 'Geburtstag', emoji: '🎂' },
+  anniversary: { label: 'Jahrestag', emoji: '💍' },
+  other: { label: 'Sonstiges', emoji: '📌' },
+};
+export const typeOf = (b) => (EVENT_TYPES[b.type] ? b.type : 'birthday');
+export const typeInfo = (b) => EVENT_TYPES[typeOf(b)];
+
+/** Zähltext zum Jahr: "wird 36", "8. Jahrestag", "seit 6 Jahren" (null ohne Jahr). */
+export function countText(b, n) {
+  if (!n) return null;
+  const type = typeOf(b);
+  if (type === 'birthday') return `wird ${n}`;
+  if (type === 'anniversary') return `${n}. Jahrestag`;
+  return `seit ${n} ${n === 1 ? 'Jahr' : 'Jahren'}`;
+}
+
+/** Datum des Ereignisses im Jahr `year`. 29.2. wird in Nicht-Schaltjahren zum 28.2. */
 export function dateInYear(b, year) {
   const day = b.month === 2 && b.day === 29 && !isLeapYear(year) ? 28 : b.day;
   return new Date(year, b.month - 1, day);
 }
 
-/** Alter, das die Person im Jahr `year` erreicht (null, wenn kein Geburtsjahr bekannt oder noch nicht geboren). */
+/** Alter bzw. Anzahl Jahre im Jahr `year` (null, wenn kein Jahr bekannt oder es noch nicht losging). */
 export function ageIn(b, year) {
   return b.year && year > b.year ? year - b.year : null;
 }
@@ -75,14 +94,15 @@ export function reminderDates(b, year) {
  * Titel und Text der Benachrichtigung (ohne Emoji – die setzt die Oberfläche).
  * `daysLeft` nur angeben, wenn die Meldung verspätet kommt: dann steht die echte Restzeit im Titel.
  */
-export function stageText(stage, b, age, birthdayDate, daysLeft) {
+export function stageText(stage, b, age, eventDate, daysLeft) {
   const exact = { month: 'in 1 Monat', week: 'in 1 Woche', day: 'morgen', today: 'heute' }[stage];
   const when = daysLeft === undefined ? exact : daysLeft <= 0 ? 'heute' : daysLeft === 1 ? 'morgen' : `in ${daysLeft} Tagen`;
-  const title = `${b.name} hat ${when} Geburtstag`;
-  const ageText = age ? `wird ${age}` : null;
-  if (stage === 'today') return { title, body: ageText || 'Alles Gute!' };
-  const date = `am ${birthdayDate.getDate()}. ${MONTH_NAMES[birthdayDate.getMonth()]}`;
-  return { title, body: ageText ? `${date} · ${ageText}` : date };
+  const type = typeOf(b);
+  const title = type === 'birthday' ? `${b.name} hat ${when} Geburtstag` : `${b.name} ${when}`;
+  const count = countText(b, age);
+  const dateText = `am ${eventDate.getDate()}. ${MONTH_NAMES[eventDate.getMonth()]}`;
+  if (stage === 'today') return { title, body: count || (type === 'other' ? dateText : 'Alles Gute!') };
+  return { title, body: count ? `${dateText} · ${count}` : dateText };
 }
 
 /**

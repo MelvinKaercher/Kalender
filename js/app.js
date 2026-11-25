@@ -53,7 +53,7 @@ function renderHeader(today) {
     title.append(String(cursor.getFullYear()));
     showToday = cursor.getFullYear() !== today.getFullYear();
   } else {
-    title.append('Geburtstage');
+    title.append('Ereignisse');
   }
 
   // Im Monat ist der Titel ein Knopf: Tipp = herauszoomen zur Jahresansicht
@@ -68,7 +68,7 @@ function renderHeader(today) {
   $('#btn-prev').setAttribute('aria-label', { Monat: 'Vorheriger Monat', Woche: 'Vorherige Woche', Jahr: 'Vorheriges Jahr' }[unit]);
   $('#btn-next').setAttribute('aria-label', { Monat: 'Nächster Monat', Woche: 'Nächste Woche', Jahr: 'Nächstes Jahr' }[unit]);
   $('#btn-today').setAttribute('aria-label', unit === 'Jahr' ? 'Zum aktuellen Jahr' : `Zur aktuellen ${unit}`);
-  $('#btn-add').setAttribute('aria-label', view === 'birthdays' ? 'Geburtstag hinzufügen' : 'Termin hinzufügen');
+  $('#btn-add').setAttribute('aria-label', view === 'birthdays' ? 'Ereignis hinzufügen' : 'Termin hinzufügen');
   document.querySelectorAll('#tabbar button').forEach((b) => {
     const active = b.dataset.view === view;
     b.classList.toggle('active', active);
@@ -247,9 +247,9 @@ function checkReminders() {
   });
 }
 
-/* ───────── Push: Geburtstage beim Server aktuell halten ───────── */
+/* ───────── Push: Ereignisse (Geburtstage, Jahrestage …) beim Server aktuell halten ───────── */
 
-const birthdaySignature = () => JSON.stringify(store.birthdays().map((b) => [b.id, b.name, b.day, b.month, b.year]));
+const birthdaySignature = () => JSON.stringify(store.birthdays().map((b) => [b.id, b.name, b.day, b.month, b.year, b.type || 'birthday']));
 let lastSignature = '';
 let lastSync = 0;
 let syncTimer;
@@ -265,7 +265,7 @@ function syncPush({ force = false } = {}) {
   }, 1000);
 }
 
-/** Klick auf eine Benachrichtigung: ?open=birthday:<id> öffnet den Geburtstag. */
+/** Klick auf eine Benachrichtigung: ?open=birthday:<id> öffnet das Ereignis (der Name "birthday" ist historisch). */
 function openFromUrl(href) {
   let target;
   try { target = new URL(href, location.href).searchParams.get('open'); } catch { return; }

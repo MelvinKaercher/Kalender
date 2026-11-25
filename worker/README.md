@@ -1,17 +1,17 @@
 # Push-Server für Geburtstags-Benachrichtigungen
 
-Ein winziger Server (Cloudflare Worker, kostenlos), der dir für jeden Geburtstag eine Mitteilung auf dein iPhone schickt:
+Ein winziger Server (Cloudflare Worker, kostenlos), der dir für jedes Ereignis (Geburtstag, Jahrestag, Sonstiges) eine Mitteilung auf dein iPhone schickt:
 
 | Wann | Uhrzeit (Ortszeit deines Handys) |
 |---|---|
 | 1 Monat vorher | 09:00 |
 | 1 Woche vorher | 09:00 |
 | 1 Tag vorher | 09:00 |
-| am Geburtstag | 00:00 |
+| am Tag selbst | 00:00 |
 
 Warum ein Server? Eine Web-App auf dem iPhone kann sich keine Mitteilungen selbst für später vormerken, solange sie geschlossen ist. Der Server schickt sie zur richtigen Zeit über Apples Push-Dienst.
 
-**Was liegt auf dem Server?** Nur die Geburtstage (Name, Tag, Monat, optional Geburtsjahr), die Zeitzone deines Handys und die Push-Adresse deines Geräts – in deinem eigenen Cloudflare-Konto. **Termine verlassen dein Handy nie.**
+**Was liegt auf dem Server?** Nur die Ereignisse (Name, Art, Tag, Monat, optional Jahr), die Zeitzone deines Handys und die Push-Adresse deines Geräts – in deinem eigenen Cloudflare-Konto. **Termine verlassen dein Handy nie.**
 
 Der Server prüft bei jeder Anfrage einen **Zugangscode**, den nur du kennst, und akzeptiert Anfragen nur von deiner App-Adresse. Push-Adressen werden nur für echte Push-Dienste angenommen (Apple, Google, Mozilla, Microsoft).
 
@@ -99,7 +99,7 @@ Dann committen und pushen, damit GitHub Pages die neue Version ausliefert.
 **9. Am iPhone einschalten**
 
 1. Die App über das Home-Bildschirm-Icon öffnen (nicht in Safari!) – zweimal, damit die neue Version geladen ist.
-2. Tab **Geburtstage** → **Benachrichtigungen** → Zugangscode eingeben → **einschalten** → iOS fragt nach der Erlaubnis → **Erlauben**.
+2. Tab **Ereignisse** → **Benachrichtigungen** → Zugangscode eingeben → **einschalten** → iOS fragt nach der Erlaubnis → **Erlauben**.
 3. **Testnachricht senden** tippen: Nach wenigen Sekunden muss eine Mitteilung erscheinen.
 
 ## Hinweise
@@ -108,7 +108,7 @@ Dann committen und pushen, damit GitHub Pages die neue Version ausliefert.
 - Die Mitteilung kommt 0–5 Minuten nach dem Zielzeitpunkt (der Server prüft alle 5 Minuten).
 - Die Uhrzeit richtet sich nach der **Zeitzone deines Handys beim letzten Öffnen der App**. Auf Reisen einmal die App öffnen.
 - Ein Fokus-/Nicht-stören-Modus kann Mitteilungen stumm schalten – besonders die um 00:00.
-- Neue oder geänderte Geburtstage werden automatisch an den Server übertragen, sobald die App Internet hat.
+- Neue oder geänderte Ereignisse werden automatisch an den Server übertragen, sobald die App Internet hat.
 
 ## Wenn etwas nicht klappt
 

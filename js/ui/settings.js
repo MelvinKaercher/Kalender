@@ -1,4 +1,4 @@
-// Sheet "Benachrichtigungen": Push-Nachrichten für Geburtstage ein- und ausschalten.
+// Sheet "Benachrichtigungen": Push-Nachrichten für Ereignisse (Geburtstage, Jahrestage …) ein- und ausschalten.
 import { el } from './dom.js';
 import { openSheet } from './sheet.js';
 import config from '../config.js';
@@ -15,7 +15,7 @@ const ERROR_TEXT = {
 
 const uhr = (t) => `${t} Uhr`;
 
-/** Kurztext für die Zeile in der Geburtstagsliste. */
+/** Kurztext für die Zeile in der Ereignisliste. */
 export const statusLabel = (state) =>
   ({ on: 'An', off: 'Aus', unconfigured: 'Einrichten', unsupported: 'Nicht verfügbar', denied: 'Blockiert' }[state] || '');
 
@@ -34,12 +34,12 @@ export function openNotificationSettings({ push, onChange = () => {} }) {
 
     parts.push(
       el('div', { class: 'info' },
-        el('p', { class: 'notes', text: 'Für jeden Geburtstag bekommst du eine Mitteilung auf dein iPhone, auch wenn die App geschlossen ist:' }),
+        el('p', { class: 'notes', text: 'Für jedes Ereignis (Geburtstag, Jahrestag …) bekommst du eine Mitteilung auf dein iPhone, auch wenn die App geschlossen ist:' }),
         el('ul', { class: 'info-list' },
           el('li', { text: `1 Monat vorher (${uhr(config.times.advance)})` }),
           el('li', { text: `1 Woche vorher (${uhr(config.times.advance)})` }),
           el('li', { text: `1 Tag vorher (${uhr(config.times.advance)})` }),
-          el('li', { text: `am Geburtstag um ${uhr(config.times.today)}` }))));
+          el('li', { text: `am Tag selbst um ${uhr(config.times.today)}` }))));
 
     if (state === 'unconfigured') {
       parts.push(note('Der Server für die Mitteilungen ist noch nicht eingerichtet. Die Schritte stehen in der Datei worker/README.md im Projekt. Danach trägst du die Adresse des Servers in js/config.js ein.'));
@@ -99,7 +99,7 @@ export function openNotificationSettings({ push, onChange = () => {} }) {
     }
 
     parts.push(
-      el('p', { class: 'notes small', text: 'Datenschutz: Dafür werden die Namen und Geburtstage an deinen eigenen Server (dein Cloudflare-Konto) gesendet. Termine bleiben ausschließlich auf deinem iPhone.' }));
+      el('p', { class: 'notes small', text: 'Datenschutz: Dafür werden die Namen und Daten der Ereignisse an deinen eigenen Server (dein Cloudflare-Konto) gesendet. Termine bleiben ausschließlich auf deinem iPhone.' }));
     sheet.body.replaceChildren(...parts);
   }
 
