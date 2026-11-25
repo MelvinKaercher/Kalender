@@ -42,7 +42,7 @@ function cleanBirthdays(list) {
   for (const b of list) {
     if (!b || typeof b !== 'object') return null;
     const { id, name, day, month, year } = b;
-    const type = b.type ?? 'birthday';
+    const type = b.type === 'anniversary' ? 'other' : (b.type ?? 'birthday'); // alte Geräte: Jahrestag = Sonstiges
     if (!EVENT_TYPE_KEYS.includes(type)) return null;
     if (typeof id !== 'string' || !/^[\w-]{1,64}$/.test(id)) return null;
     if (typeof name !== 'string' || name.length < 1 || name.length > 80) return null;

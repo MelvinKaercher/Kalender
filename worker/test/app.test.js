@@ -226,21 +226,21 @@ test('Cron: mehrere Abos werden unabhängig bedient (Zeitzonen)', async () => {
 test('Ereignis-Typen: gültige werden gespeichert, unbekannte abgelehnt', async () => {
   const env = mkEnv();
   const list = [
-    { id: 'hz', name: 'Hochzeitstag', day: 3, month: 6, year: 2018, type: 'anniversary' },
+    { id: 'hz', name: 'Hochzeitstag', day: 3, month: 6, year: 2018, type: 'anniversary' }, // altes Gerät
     { id: 'nt', name: 'Namenstag', day: 19, month: 3, year: null, type: 'other' },
     { id: 'an', name: 'Anna', day: 25, month: 11, year: 1990, type: 'birthday' },
   ];
   assert.equal((await subscribe(env, { birthdays: list })).status, 200);
   const rec = JSON.parse([...env.SUBS.map.values()][0]);
-  assert.deepEqual(rec.birthdays.map((b) => b.type), ['anniversary', 'other', 'birthday']);
+  assert.deepEqual(rec.birthdays.map((b) => b.type), ['other', 'other', 'birthday']);
   assert.equal((await subscribe(mkEnv(), { birthdays: [{ id: 'x', name: 'X', day: 1, month: 1, year: null, type: 'hack' }] })).status, 400);
 });
 
-test('Cron: Jahrestag bekommt einen eigenen Text ohne "hat Geburtstag"', async () => {
+test('Cron: Sonstiges bekommt einen eigenen Text ohne "hat Geburtstag"', async () => {
   const env = mkEnv();
-  await subscribe(env, { birthdays: [{ id: 'hz', name: 'Hochzeitstag', day: 25, month: 11, year: 2018, type: 'anniversary' }] });
+  await subscribe(env, { birthdays: [{ id: 'hz', name: 'Hochzeitstag', day: 25, month: 11, year: 2018, type: 'other' }] });
   const titles = [];
   const sendPush = async (s, m) => (titles.push([m.title, m.body]), { status: 201 });
   await runScheduled(env, { sendPush, now: new Date('2026-11-24T23:00:00Z') }); // 00:00 am Tag selbst
-  assert.deepEqual(titles, [['Hochzeitstag heute', '8. Jahrestag']]);
+  assert.deepEqual(titles, [['Hochzeitstag heute', 'seit 8 Jahren']]);
 });

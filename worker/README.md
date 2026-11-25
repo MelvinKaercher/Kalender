@@ -1,6 +1,6 @@
 # Push-Server für Geburtstags-Benachrichtigungen
 
-Ein winziger Server (Cloudflare Worker, kostenlos), der dir für jedes Ereignis (Geburtstag, Jahrestag, Sonstiges) eine Mitteilung auf dein iPhone schickt:
+Ein winziger Server (Cloudflare Worker, kostenlos), der dir für jedes Ereignis (Geburtstag, Sonstiges) eine Mitteilung auf dein iPhone schickt:
 
 | Wann | Uhrzeit (Ortszeit deines Handys) |
 |---|---|

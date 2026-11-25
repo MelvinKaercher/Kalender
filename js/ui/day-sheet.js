@@ -8,6 +8,7 @@ import { colorStyle } from '../colors.js';
 import { getDisplay } from '../display.js';
 import { typeInfo, countText } from '../birthdays.js';
 import { fromKey } from '../calendar.js';
+import { isHaircut, earned, fmtEuro } from '../haircuts.js';
 
 export function openDaySheet(date) {
   const { events, birthdays, holidays, vacations } = itemsForDay(store.events(), store.birthdays(), date);
@@ -33,6 +34,7 @@ export function openDaySheet(date) {
         el('span', { class: 'when', text: fmtRange(ev) }),
         el('span', { class: 'what' },
           el('div', { class: 'name', text: ev.title }),
+          isHaircut(ev) ? el('div', { class: 'note', text: `✂︎ ${ev.haircut.customer ? `${ev.haircut.customer} · ` : ''}${fmtEuro(earned(ev))}` }) : null,
           ev.note ? el('div', { class: 'note', text: ev.note }) : null))),
   ];
 

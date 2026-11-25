@@ -130,30 +130,33 @@ test('currentStage: Person noch nicht geboren -> keine Stufe', () => {
 
 function pick(r) { return r && { stage: r.stage, year: r.year, age: r.age }; }
 
-/* ───────── Ereignis-Typen: Geburtstag, Jahrestag, Sonstiges ───────── */
+/* ───────── Ereignis-Typen: Geburtstag, Sonstiges ───────── */
 import { EVENT_TYPES, typeOf, typeInfo, countText } from '../js/birthdays.js';
 
 test('Typen: Einträge ohne type (alte Daten) gelten als Geburtstag', () => {
   assert.equal(typeOf({ name: 'A', day: 1, month: 1 }), 'birthday');
   assert.equal(typeOf({ type: 'kaputt' }), 'birthday');
-  assert.equal(typeOf({ type: 'anniversary' }), 'anniversary');
-  assert.deepEqual(Object.keys(EVENT_TYPES), ['birthday', 'anniversary', 'other']);
-  assert.equal(typeInfo({ type: 'anniversary' }).label, 'Jahrestag');
+  assert.deepEqual(Object.keys(EVENT_TYPES), ['birthday', 'other']);
   assert.equal(typeInfo({}).emoji, '🎂');
+});
+
+test('Typen: frühere "Jahrestag"-Einträge gelten als Sonstiges', () => {
+  assert.equal(typeOf({ type: 'anniversary' }), 'other');
+  assert.equal(typeInfo({ type: 'anniversary' }).label, 'Sonstiges');
+  assert.equal(countText({ type: 'anniversary' }, 8), 'seit 8 Jahren');
 });
 
 test('countText je Typ', () => {
   assert.equal(countText({ type: 'birthday' }, 36), 'wird 36');
   assert.equal(countText({}, 36), 'wird 36');
-  assert.equal(countText({ type: 'anniversary' }, 8), '8. Jahrestag');
   assert.equal(countText({ type: 'other' }, 1), 'seit 1 Jahr');
   assert.equal(countText({ type: 'other' }, 6), 'seit 6 Jahren');
-  assert.equal(countText({ type: 'anniversary' }, null), null);
-  assert.equal(countText({ type: 'anniversary' }, 0), null);
+  assert.equal(countText({ type: 'other' }, null), null);
+  assert.equal(countText({ type: 'other' }, 0), null);
 });
 
-test('Jahrestag und Sonstiges wiederholen sich jedes Jahr wie Geburtstage', () => {
-  const hz = { id: 'h', name: 'Hochzeitstag', day: 27, month: 11, year: 2018, type: 'anniversary' };
+test('Sonstiges wiederholt sich jedes Jahr wie Geburtstage', () => {
+  const hz = { id: 'h', name: 'Hochzeitstag', day: 27, month: 11, year: 2018, type: 'other' };
   for (const y of [2026, 2027, 2040]) assert.equal(birthdaysOn([hz], new Date(y, 10, 27)).length, 1, String(y));
   assert.equal(birthdaysOn([hz], new Date(2026, 10, 27))[0].age, 8);
   assert.equal(birthdaysOn([hz], new Date(2017, 10, 27)).length, 0, 'vor dem Startjahr nichts');
@@ -162,26 +165,14 @@ test('Jahrestag und Sonstiges wiederholen sich jedes Jahr wie Geburtstage', () =
   assert.equal(birthdaysOn([sonst], new Date(2031, 2, 19))[0].age, null);
 });
 
-test('stageText Jahrestag: Titel ohne "hat Geburtstag", Zähltext im Body', () => {
-  const hz = { id: 'h', name: 'Hochzeitstag', day: 27, month: 11, year: 2018, type: 'anniversary' };
+test('stageText Sonstiges: Titel ohne "hat Geburtstag", Zähltext im Body', () => {
+  const hz = { id: 'h', name: 'Hochzeitstag', day: 27, month: 11, year: 2018, type: 'other' };
   const d = new Date(2026, 10, 27);
-  assert.deepEqual(stageText('month', hz, 8, d), { title: 'Hochzeitstag in 1 Monat', body: 'am 27. November · 8. Jahrestag' });
+  assert.deepEqual(stageText('month', hz, 8, d), { title: 'Hochzeitstag in 1 Monat', body: 'am 27. November · seit 8 Jahren' });
   assert.equal(stageText('week', hz, 8, d).title, 'Hochzeitstag in 1 Woche');
   assert.equal(stageText('day', hz, 8, d).title, 'Hochzeitstag morgen');
-  assert.deepEqual(stageText('today', hz, 8, d), { title: 'Hochzeitstag heute', body: '8. Jahrestag' });
-  assert.equal(stageText('today', hz, null, d).body, 'Alles Gute!');
+  assert.deepEqual(stageText('today', hz, 8, d), { title: 'Hochzeitstag heute', body: 'seit 8 Jahren' });
+  assert.equal(stageText('today', hz, null, d).body, 'am 27. November');
   assert.equal(stageText('month', hz, null, d).body, 'am 27. November');
   assert.equal(stageText('week', hz, 8, d, 5).title, 'Hochzeitstag in 5 Tagen'); // verspätet: echte Restzeit
-});
-
-test('stageText Sonstiges', () => {
-  const e = { id: 'e', name: 'Einschulung', day: 1, month: 9, year: 2020, type: 'other' };
-  const d = new Date(2026, 8, 1);
-  assert.equal(stageText('today', e, 6, d).body, 'seit 6 Jahren');
-  assert.equal(stageText('today', { ...e, year: null }, null, d).body, 'am 1. September'); // ohne Jahr: Datum statt "Alles Gute"
-  assert.equal(stageText('day', e, 6, d).title, 'Einschulung morgen');
-});
-
-test('stageText Geburtstag bleibt unverändert', () => {
-  assert.equal(stageText('today', { name: 'Anna' }, 36, new Date(2026, 10, 25)).title, 'Anna hat heute Geburtstag');
 });

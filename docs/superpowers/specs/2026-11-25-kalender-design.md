@@ -63,6 +63,11 @@ Wunsch von Melvin: wie im Apple-Kalender herauszoomen und Monate schnell wählen
 
 ## Runde 4 – Feiertagsnamen und Ereignisse
 - **Feiertage mit Namen:** Im Monat steht der Kurzname grün unter der Zahl (statt grünem Punkt), in der Woche als umbrechender Chip in der Ganztags-Zeile. Kurznamen enthalten weiche Trennstellen (z. B. „Pfingst­montag"). Dafür sind die Monatszeilen mindestens 76 px hoch.
-- **Ereignisse statt Geburtstage:** Das Konzept „einmal speichern, jedes Jahr berechnen" gilt für drei Arten: Geburtstag, Jahrestag, Sonstiges (Feld `type`, fehlender Wert = Geburtstag, daher keine Datenmigration). Intern bleiben Namen wie `birthdays` und der Store `birthdays` bestehen (historisch); sichtbar heißt alles „Ereignis".
-- **Texte je Art:** Geburtstag „wird 36" / „Anna hat in 1 Monat Geburtstag"; Jahrestag „8. Jahrestag" / „Hochzeitstag in 1 Monat"; Sonstiges „seit 6 Jahren" (ohne Jahr: das Datum).
+- **Ereignisse statt Geburtstage:** Das Konzept „einmal speichern, jedes Jahr berechnen" gilt für zwei Arten: Geburtstag, Sonstiges (Jahrestag wurde in Runde 5 entfernt; alte Einträge gelten als Sonstiges) (Feld `type`, fehlender Wert = Geburtstag, daher keine Datenmigration). Intern bleiben Namen wie `birthdays` und der Store `birthdays` bestehen (historisch); sichtbar heißt alles „Ereignis".
+- **Texte je Art:** Geburtstag „wird 36" / „Anna hat in 1 Monat Geburtstag"; Sonstiges „seit 6 Jahren" (ohne Jahr: das Datum).
 - **Server:** akzeptiert `type` (ältere Clients ohne `type` gelten als Geburtstag), unbekannte Arten werden abgelehnt. Die vier Stufen (1 Monat, 1 Woche, 1 Tag, am Tag) gelten für alle Arten.
+
+## Runde 5: Haarschnitte und Verdienst
+- **Jahrestag entfernt:** Arten sind nur noch Geburtstag und Sonstiges; gespeicherte `anniversary`-Einträge gelten als Sonstiges (`typeOf`), der Worker nimmt sie von alten Geräten an und speichert `other`.
+- **Haarschnitt = normaler Termin** mit Zusatzfeld `haircut: { customer, price, tip }`; Farbe wird beim Speichern fest auf Orange gesetzt (Farbwahl ausgeblendet). Keine DB-Migration.
+- **Verdienst** = Preis + Trinkgeld; zählt nur, wenn das Ende des Termins erreicht ist, künftige zählen als „geplant“. Reine Logik in `js/haircuts.js`, Ansicht in `js/ui/haircuts-view.js` (Tab „Haare", Jahreswechsel per ‹ ›).

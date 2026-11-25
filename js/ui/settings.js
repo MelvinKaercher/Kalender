@@ -1,4 +1,4 @@
-// Sheet "Benachrichtigungen": Push-Nachrichten für Ereignisse (Geburtstage, Jahrestage …) ein- und ausschalten.
+// Sheet "Benachrichtigungen": Push-Nachrichten für Ereignisse (Geburtstage …) ein- und ausschalten.
 import { el } from './dom.js';
 import { openSheet } from './sheet.js';
 import config from '../config.js';
@@ -34,7 +34,7 @@ export function openNotificationSettings({ push, onChange = () => {} }) {
 
     parts.push(
       el('div', { class: 'info' },
-        el('p', { class: 'notes', text: 'Für jedes Ereignis (Geburtstag, Jahrestag …) bekommst du eine Mitteilung auf dein iPhone, auch wenn die App geschlossen ist:' }),
+        el('p', { class: 'notes', text: 'Für jedes Ereignis (Geburtstag …) bekommst du eine Mitteilung auf dein iPhone, auch wenn die App geschlossen ist:' }),
         el('ul', { class: 'info-list' },
           el('li', { text: `1 Monat vorher (${uhr(config.times.advance)})` }),
           el('li', { text: `1 Woche vorher (${uhr(config.times.advance)})` }),

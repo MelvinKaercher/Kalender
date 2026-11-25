@@ -6,6 +6,7 @@ import { toKey, fromMinutes, toMinutes, daysInMonth } from '../calendar.js';
 import { REMIND_OPTIONS } from '../reminders.js';
 import { EVENT_TYPES, typeOf } from '../birthdays.js';
 import { PALETTE, colorStyle, normalizeHex } from '../colors.js';
+import { HAIRCUT_COLOR, HAIRCUT_TITLE, parseEuro } from '../haircuts.js';
 
 const barBtn = (label, onclick, strong = false) =>
   el('button', { class: `bar-btn${strong ? ' strong' : ''}`, type: 'button', onclick, text: label });
@@ -39,7 +40,7 @@ function shake(node) {
 
 /* ───────── Termin ───────── */
 
-export function openEventForm({ event = null, date = new Date(), start = '09:00' } = {}) {
+export function openEventForm({ event = null, date = new Date(), start = '09:00', haircut = false } = {}) {
   const isNew = !event;
   const startMin = toMinutes(start);
   const d = event
@@ -57,6 +58,18 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
   const endIn = el('input', { type: 'time', value: d.end, step: '300' });
   const remindSel = el('select', { 'aria-label': 'Erinnerung' });
   const note = el('textarea', { placeholder: 'Notiz', rows: '3', maxlength: '2000' });
+
+  // Haareschneiden: Schalter + Kunde, Preis, Trinkgeld (Termin wird automatisch orange)
+  const hcData = d.haircut || {};
+  const hcSwitch = el('input', { type: 'checkbox', class: 'switch', checked: !!d.haircut || (isNew && haircut), 'aria-label': 'Haareschneiden' });
+  const euroValue = (v) => (v || v === 0 ? String(v).replace('.', ',') : '');
+  const customerIn = el('input', { type: 'text', placeholder: 'Kunde (optional)', value: hcData.customer || '', maxlength: '80', autocomplete: 'off' });
+  const priceIn = el('input', { type: 'text', inputmode: 'decimal', placeholder: '0,00', value: euroValue(hcData.price), 'aria-label': 'Preis in Euro', autocomplete: 'off' });
+  const tipIn = el('input', { type: 'text', inputmode: 'decimal', placeholder: '0,00', value: euroValue(hcData.tip), 'aria-label': 'Trinkgeld in Euro', autocomplete: 'off' });
+  const hcGroup = el('div', { class: 'group', 'data-role': 'haircut-fields' },
+    el('label', { class: 'row' }, el('span', { text: 'Kunde' }), customerIn),
+    el('label', { class: 'row' }, el('span', { text: 'Preis (€)' }), priceIn),
+    el('label', { class: 'row' }, el('span', { text: 'Trinkgeld (€)' }), tipIn));
 
   // Farbe: Standard, 8 Vorschläge, freie Wahl (Farbwähler des Geräts)
   let color = normalizeHex(d.color);
@@ -125,8 +138,30 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
     error.textContent = '';
   });
 
+  const colorGroup = el('div', { class: 'group' },
+    el('div', { class: 'row col' }, el('span', { text: 'Farbe' }),
+      el('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'Farbe' }, swatchButtons, customSwatch)));
+  function syncHaircut() {
+    hcGroup.hidden = !hcSwitch.checked;
+    colorGroup.hidden = hcSwitch.checked;
+    title.placeholder = hcSwitch.checked ? HAIRCUT_TITLE : 'Titel';
+    error.textContent = '';
+  }
+  hcSwitch.addEventListener('change', syncHaircut);
+  syncHaircut();
+
   async function save() {
-    const name = title.value.trim();
+    let name = title.value.trim();
+    let hc;
+    if (hcSwitch.checked) {
+      const price = parseEuro(priceIn.value);
+      const tip = parseEuro(tipIn.value);
+      if (Number.isNaN(price)) { error.textContent = 'Bitte den Preis als Zahl eingeben, z. B. 25 oder 25,50.'; shake(priceIn); priceIn.focus(); return; }
+      if (Number.isNaN(tip)) { error.textContent = 'Bitte das Trinkgeld als Zahl eingeben, z. B. 3 oder 2,50.'; shake(tipIn); tipIn.focus(); return; }
+      const customer = customerIn.value.trim();
+      hc = { customer, price, tip };
+      if (!name) name = customer ? `${HAIRCUT_TITLE} · ${customer}` : HAIRCUT_TITLE;
+    }
     if (!name) { error.textContent = 'Bitte einen Titel eingeben.'; shake(title.parentElement); title.focus(); return; }
     if (!dateIn.value) { error.textContent = 'Bitte ein Datum wählen.'; shake(dateIn); return; }
     if (!allDay.checked) {
@@ -146,7 +181,8 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
       end: allDay.checked ? null : endIn.value,
       note: note.value.trim(),
       remind: remindSel.value === '' ? null : Number(remindSel.value),
-      color,
+      color: hc ? HAIRCUT_COLOR : color,
+      haircut: hc || undefined,
     });
     sheet.close();
   }
@@ -158,10 +194,10 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
       el('label', { class: 'row' }, el('span', { text: 'Datum' }), dateIn),
       startRow, endRow,
     ),
+    el('div', { class: 'group' }, el('label', { class: 'row' }, el('span', { text: 'Haareschneiden ✂︎' }), hcSwitch)),
+    hcGroup,
     el('div', { class: 'group' }, el('label', { class: 'row' }, el('span', { text: 'Erinnerung' }), remindSel)),
-    el('div', { class: 'group' },
-      el('div', { class: 'row col' }, el('span', { text: 'Farbe' }),
-        el('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'Farbe' }, swatchButtons, customSwatch))),
+    colorGroup,
     el('div', { class: 'group' }, el('div', { class: 'row stack' }, note)),
     error,
     isNew ? null : deleteButton(async () => { await store.deleteEvent(d.id); sheet.close(); }),
@@ -178,17 +214,13 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
   return sheet;
 }
 
-/* ───────── Ereignis (Geburtstag, Jahrestag, Sonstiges – jedes Jahr wiederkehrend) ───────── */
+/* ───────── Ereignis (Geburtstag, Sonstiges – jedes Jahr wiederkehrend) ───────── */
 
 // Beschriftungen je Typ
 const TYPE_TEXT = {
   birthday: {
     name: 'Name', year: 'Geburtsjahr (optional)', yearLabel: 'Geburtsjahr', yearWord: 'Geburtsjahr',
     hint: 'Der Geburtstag wiederholt sich automatisch jedes Jahr. Mit Geburtsjahr zeigt die App das Alter an.',
-  },
-  anniversary: {
-    name: 'Titel, z. B. Hochzeitstag', year: 'Jahr, z. B. der Hochzeit (optional)', yearLabel: 'Jahr', yearWord: 'Jahr',
-    hint: 'Das Ereignis wiederholt sich automatisch jedes Jahr. Mit Jahr zählt die App die Jahrestage mit.',
   },
   other: {
     name: 'Titel, z. B. Namenstag', year: 'Startjahr (optional)', yearLabel: 'Startjahr', yearWord: 'Startjahr',
@@ -211,7 +243,7 @@ export function openBirthdayForm({ birthday = null, date = new Date() } = {}) {
   const hint = el('p', { class: 'form-error', style: 'color:var(--text-2)' });
   const error = el('div', { class: 'form-error', role: 'alert' });
 
-  // Typ-Auswahl: Geburtstag | Jahrestag | Sonstiges
+  // Typ-Auswahl: Geburtstag | Sonstiges
   const typeButtons = Object.entries(EVENT_TYPES).map(([key, info]) =>
     el('button', { class: 'seg-btn', type: 'button', role: 'radio', 'data-type': key, onclick: () => { type = key; paintType(); } },
       `${info.emoji} ${info.label}`));

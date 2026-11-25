@@ -1,4 +1,4 @@
-// Push-Benachrichtigungen für jährliche Ereignisse – Geburtstage, Jahrestage … (Client-Seite).
+// Push-Benachrichtigungen für jährliche Ereignisse – Geburtstage … (Client-Seite).
 // Die App meldet das Gerät beim eigenen Push-Server an und hält dort die Ereignisse aktuell.
 // Alle Browser-Zugriffe sind austauschbar (`env`), damit sich das Modul in Node testen lässt.
 

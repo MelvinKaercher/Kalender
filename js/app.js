@@ -7,6 +7,7 @@ import { renderWeek } from './ui/week.js';
 import { renderYear } from './ui/year.js';
 import { openDisplaySettings } from './ui/display-settings.js';
 import { renderBirthdays } from './ui/birthdays-view.js';
+import { renderHaircuts } from './ui/haircuts-view.js';
 import { openDaySheet } from './ui/day-sheet.js';
 import { openEventForm, openBirthdayForm } from './ui/forms.js';
 import { syncBanners } from './ui/banner.js';
@@ -17,7 +18,7 @@ import { openNotificationSettings } from './ui/settings.js';
 import { getDisplay } from './display.js';
 
 const $ = (sel) => document.querySelector(sel);
-const VIEWS = ['month', 'week', 'year', 'birthdays'];
+const VIEWS = ['month', 'week', 'year', 'haircuts', 'birthdays'];
 
 function savedView() {
   try {
@@ -52,6 +53,9 @@ function renderHeader(today) {
   } else if (view === 'year') {
     title.append(String(cursor.getFullYear()));
     showToday = cursor.getFullYear() !== today.getFullYear();
+  } else if (view === 'haircuts') {
+    title.append('Haare ', el('span', { class: 'sub', text: String(cursor.getFullYear()) }));
+    showToday = cursor.getFullYear() !== today.getFullYear();
   } else {
     title.append('Ereignisse');
   }
@@ -64,11 +68,11 @@ function renderHeader(today) {
 
   $('#nav').hidden = view === 'birthdays';
   $('#btn-today').hidden = !showToday;
-  const unit = { week: 'Woche', year: 'Jahr' }[view] || 'Monat';
+  const unit = { week: 'Woche', year: 'Jahr', haircuts: 'Jahr' }[view] || 'Monat';
   $('#btn-prev').setAttribute('aria-label', { Monat: 'Vorheriger Monat', Woche: 'Vorherige Woche', Jahr: 'Vorheriges Jahr' }[unit]);
   $('#btn-next').setAttribute('aria-label', { Monat: 'Nächster Monat', Woche: 'Nächste Woche', Jahr: 'Nächstes Jahr' }[unit]);
   $('#btn-today').setAttribute('aria-label', unit === 'Jahr' ? 'Zum aktuellen Jahr' : `Zur aktuellen ${unit}`);
-  $('#btn-add').setAttribute('aria-label', view === 'birthdays' ? 'Ereignis hinzufügen' : 'Termin hinzufügen');
+  $('#btn-add').setAttribute('aria-label', view === 'birthdays' ? 'Ereignis hinzufügen' : view === 'haircuts' ? 'Haarschnitt hinzufügen' : 'Termin hinzufügen');
   document.querySelectorAll('#tabbar button').forEach((b) => {
     const active = b.dataset.view === (view === 'year' ? 'month' : view);
     b.classList.toggle('active', active);
@@ -99,6 +103,7 @@ function render(anim = null) {
     onNewEvent: (date, start) => openEventForm({ date, start }),
     onMoveEvent: (event, changes) => store.saveEvent({ ...event, ...changes }),
     onAdd: () => openBirthdayForm({}),
+    onAddHaircut: () => openEventForm({ date: today, haircut: true }),
     pushStatus: push.status(),
     onNotifications: () => openNotificationSettings({ push, onChange: () => render() }),
     onSettings: () => openDisplaySettings({ onChange: () => render() }),
@@ -107,6 +112,7 @@ function render(anim = null) {
   if (state.view === 'month') renderMonth(view, ctx);
   else if (state.view === 'week') renderWeek(view, ctx);
   else if (state.view === 'year') renderYear(view, ctx);
+  else if (state.view === 'haircuts') renderHaircuts(view, ctx);
   else renderBirthdays(view, ctx);
 }
 
@@ -137,7 +143,7 @@ function go(delta) {
   if (state.view === 'month') {
     const target = addMonths(state.cursor, delta);
     state.cursor = isSameMonth(target, today) ? today : target;
-  } else if (state.view === 'year') {
+  } else if (state.view === 'year' || state.view === 'haircuts') {
     const target = new Date(state.cursor.getFullYear() + delta, 0, 1);
     state.cursor = target.getFullYear() === today.getFullYear() ? today : target;
   } else {
@@ -156,6 +162,7 @@ function goToday() {
 /** Neuer Termin: im Monat am Cursor-Tag, in der Woche heute (falls sichtbar) sonst Wochenstart. */
 function addForCurrentView() {
   if (state.view === 'birthdays') return openBirthdayForm({});
+  if (state.view === 'haircuts') return openEventForm({ date: startOfDay(new Date()), haircut: true });
   const today = startOfDay(new Date());
   if (state.view === 'week') {
     const inWeek = weekDays(state.cursor).some((d) => isSameDay(d, today));
@@ -247,7 +254,7 @@ function checkReminders() {
   });
 }
 
-/* ───────── Push: Ereignisse (Geburtstage, Jahrestage …) beim Server aktuell halten ───────── */
+/* ───────── Push: Ereignisse (Geburtstage …) beim Server aktuell halten ───────── */
 
 const birthdaySignature = () => JSON.stringify(store.birthdays().map((b) => [b.id, b.name, b.day, b.month, b.year, b.type || 'birthday']));
 let lastSignature = '';

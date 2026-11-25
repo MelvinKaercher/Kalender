@@ -1,4 +1,4 @@
-// Jährliche Ereignisse (Geburtstage, Jahrestage, Sonstiges): werden EINMAL gespeichert
+// Jährliche Ereignisse (Geburtstage, Sonstiges): werden EINMAL gespeichert
 // ({ id, name, day, month, year|null, type }) und für jedes Jahr neu berechnet – es werden keine Kopien angelegt.
 // Der Name "birthdays" ist historisch: Die Datei kennt alle Typen, Einträge ohne `type` gelten als Geburtstag.
 import { isLeapYear, isSameDay, startOfDay, addDays, daysInMonth } from './calendar.js';
@@ -6,18 +6,17 @@ import { isLeapYear, isSameDay, startOfDay, addDays, daysInMonth } from './calen
 /** Typen jährlicher Ereignisse. */
 export const EVENT_TYPES = {
   birthday: { label: 'Geburtstag', emoji: '🎂' },
-  anniversary: { label: 'Jahrestag', emoji: '💍' },
   other: { label: 'Sonstiges', emoji: '📌' },
 };
-export const typeOf = (b) => (EVENT_TYPES[b.type] ? b.type : 'birthday');
+// Frühere Einträge der Art "Jahrestag" gelten jetzt als "Sonstiges"; unbekannt/fehlend = Geburtstag.
+export const typeOf = (b) => (b.type === 'anniversary' ? 'other' : EVENT_TYPES[b.type] ? b.type : 'birthday');
 export const typeInfo = (b) => EVENT_TYPES[typeOf(b)];
 
-/** Zähltext zum Jahr: "wird 36", "8. Jahrestag", "seit 6 Jahren" (null ohne Jahr). */
+/** Zähltext zum Jahr: "wird 36", "seit 6 Jahren" (null ohne Jahr). */
 export function countText(b, n) {
   if (!n) return null;
   const type = typeOf(b);
   if (type === 'birthday') return `wird ${n}`;
-  if (type === 'anniversary') return `${n}. Jahrestag`;
   return `seit ${n} ${n === 1 ? 'Jahr' : 'Jahren'}`;
 }
 

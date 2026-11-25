@@ -126,7 +126,7 @@ input, select, textarea { font: inherit; color: inherit; }
 #tabbar {
   flex: none;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   padding: 6px 8px calc(6px + var(--sab));
   border-top: 1px solid var(--line);
   background: var(--bg);
@@ -448,3 +448,32 @@ input, select, textarea { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ───────── Haare: Verdienst-Übersicht ───────── */
+:root { --hair: #f76b15; --hair-soft: rgba(247, 107, 21, 0.14); --hair-ink: #c2500a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --hair-ink: #ff9a5c; } }
+:root[data-theme="dark"] { --hair-ink: #ff9a5c; }
+.hc { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 20px 28px; }
+.hc-summary { display: grid; grid-template-columns: 1.3fr 1fr 1.1fr; gap: 8px; margin-bottom: 10px; }
+.hc-stat { background: var(--hair-soft); border-radius: 16px; padding: 12px 10px; text-align: center; }
+.hc-val { font-size: 19px; font-weight: 700; color: var(--hair-ink); font-variant-numeric: tabular-nums; }
+.hc-lab { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.hc-planned { font-size: 13px; color: var(--text-2); text-align: center; margin-bottom: 8px; }
+.hc-month {
+  position: relative; width: 100%; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px;
+  padding: 13px 0 15px; text-align: left; border-bottom: 1px solid var(--line);
+}
+.hc-month.empty { opacity: .45; }
+.hc-name { font-size: 17px; font-weight: 600; }
+.hc-count { font-size: 14px; color: var(--text-2); }
+.hc-money { font-size: 16px; font-weight: 700; min-width: 86px; text-align: right; font-variant-numeric: tabular-nums; }
+.hc-bar { position: absolute; left: 0; bottom: 6px; height: 3px; width: var(--w, 0%); border-radius: 2px; background: var(--hair); }
+.hc-list { padding: 2px 0 6px; border-bottom: 1px solid var(--line); }
+.hc-item { width: 100%; display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 9px 0 9px 10px; text-align: left; border-left: 3px solid var(--hair); margin: 4px 0; }
+.hc-when { font-size: 14px; color: var(--text-2); }
+.hc-who { font-size: 15px; }
+.hc-amt { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+[data-role=haircut-fields] .row { gap: 12px; }
+[data-role=haircut-fields] input { flex: 1; min-width: 0; text-align: right; background: transparent; border: 0; font-size: 17px; color: var(--text); }
+.hc-month.empty { padding: 8px 0 9px; }
+.hc-month.empty .hc-name { font-size: 15px; font-weight: 500; }

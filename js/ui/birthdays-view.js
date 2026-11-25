@@ -1,4 +1,4 @@
-// Liste der jährlichen Ereignisse (Geburtstage, Jahrestage, Sonstiges), sortiert nach dem nächsten Auftreten.
+// Liste der jährlichen Ereignisse (Geburtstage, Sonstiges), sortiert nach dem nächsten Auftreten.
 import { el, MONTHS } from './dom.js';
 import { sortByNext, typeInfo, countText } from '../birthdays.js';
 import { statusLabel } from './settings.js';
@@ -28,7 +28,7 @@ export function renderBirthdays(root, { birthdays, now, onBirthday, onAdd, pushS
         el('div', { class: 'empty' },
           el('div', { class: 'big', text: '🎉' }),
           el('div', { text: 'Noch keine Ereignisse.' }),
-          el('div', { text: 'Geburtstage, Jahrestage und mehr: einmal eintragen, jedes Jahr dabei.' }),
+          el('div', { text: 'Geburtstage und andere Ereignisse: einmal eintragen, jedes Jahr dabei.' }),
           el('button', { type: 'button', onclick: onAdd, text: 'Ereignis hinzufügen' })
         )
       )
