@@ -2,7 +2,7 @@
 import * as store from './store.js';
 import { el, clear, MONTHS, fmtDayShort } from './ui/dom.js';
 import { startOfDay, addDays, addMonths, isSameMonth, isSameDay, isoWeek, startOfWeek, weekDays, toKey } from './calendar.js';
-import { renderMonth } from './ui/month.js';
+import { renderMonth, scrollToMonth, resetMonthScroll } from './ui/month.js';
 import { renderWeek } from './ui/week.js';
 import { renderYear } from './ui/year.js';
 import { openDisplaySettings } from './ui/display-settings.js';
@@ -115,6 +115,14 @@ function render(anim = null) {
     onNotifications: () => openNotificationSettings({ push, onChange: () => render() }),
     onSettings: () => openDisplaySettings({ onChange: () => render() }),
     onMonth: (year, month0) => openMonth(year, month0),
+    // Scrollen im Monat: nur Titel und "Heute"-Knopf nachziehen, nichts neu aufbauen
+    onVisibleMonth: (year, month0) => {
+      if (state.view !== 'month') return;
+      const t = startOfDay(new Date());
+      const target = new Date(year, month0, 1);
+      state.cursor = isSameMonth(target, t) ? t : target;
+      renderHeader(t);
+    },
   };
   if (state.view === 'month') renderMonth(view, ctx);
   else if (state.view === 'week') renderWeek(view, ctx);
@@ -128,6 +136,7 @@ function render(anim = null) {
 function setView(view, anim = 'fade') {
   if (view === state.view) return;
   state.view = view;
+  resetMonthScroll(); // beim Wechsel der Ansicht startet der Monat immer beim gewählten Tag
   try { localStorage.setItem('kalender.view', view); } catch { /* optional */ }
   render(anim);
 }
@@ -137,19 +146,33 @@ const zoomOut = () => state.view === 'month' && setView('year', 'zoom-out');
 
 /** Hineinzoomen: einen Monat aus der Jahresansicht öffnen. */
 function openMonth(year, month0) {
+  resetMonthScroll();
   const today = startOfDay(new Date());
   const target = new Date(year, month0, 1);
   state.cursor = isSameMonth(target, today) ? today : target;
   setView('month', 'zoom-in');
 }
 
+let navTarget = null; // Zielmonat während des weichen Scrollens: schnelles mehrfaches Tippen auf ‹ › addiert sich
+let navTimer = null;
+
 /** delta: +1 = vor, -1 = zurück (Monat bzw. Woche) */
 function go(delta) {
   if (state.view === 'birthdays') return;
   const today = startOfDay(new Date());
   if (state.view === 'month') {
-    const target = addMonths(state.cursor, delta);
+    // Monate scrollen: weich zum vorherigen/nächsten Monat
+    const base = navTarget || new Date(state.cursor.getFullYear(), state.cursor.getMonth(), 1);
+    const target = addMonths(base, delta);
+    if (scrollToMonth(target.getFullYear(), target.getMonth(), true)) {
+      navTarget = target;
+      clearTimeout(navTimer);
+      navTimer = setTimeout(() => { navTarget = null; }, 900);
+      return;
+    }
+    navTarget = null;
     state.cursor = isSameMonth(target, today) ? today : target;
+    resetMonthScroll();
   } else if (state.view === 'year' || state.view === 'haircuts') {
     const target = new Date(state.cursor.getFullYear() + delta, 0, 1);
     state.cursor = target.getFullYear() === today.getFullYear() ? today : target;
@@ -161,6 +184,8 @@ function go(delta) {
 
 function goToday() {
   const today = startOfDay(new Date());
+  if (state.view === 'month' && scrollToMonth(today.getFullYear(), today.getMonth(), true)) return;
+  resetMonthScroll();
   const dir = state.cursor < today ? 'next' : 'prev';
   state.cursor = today;
   render(dir);
@@ -245,7 +270,7 @@ document.querySelectorAll('#tabbar button').forEach((b) => b.addEventListener('c
     tracking = false;
     const dx = e.changedTouches[0].clientX - x0;
     const dy = e.changedTouches[0].clientY - y0;
-    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6 && Date.now() - t0 < 700) go(dx < 0 ? 1 : -1);
+    if (state.view !== 'month' && Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6 && Date.now() - t0 < 700) go(dx < 0 ? 1 : -1);
   }, { passive: true });
 
   view.addEventListener('touchcancel', () => { pinch = null; tracking = false; }, { passive: true });

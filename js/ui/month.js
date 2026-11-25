@@ -1,14 +1,15 @@
-// Monatsansicht: Raster mit Namen der Termine/Ereignisse + "Als Nächstes"-Liste.
-import { el, WEEKDAYS, fmtWeekdayDay } from './dom.js';
-import { monthGrid, isSameDay, addDays, startOfDay } from '../calendar.js';
+// Monatsansicht: endloses Runterscrollen von Monat zu Monat. Jeder Monat ist ein eigener Block mit eigenem
+// Raster und beginnt deshalb in einer neuen Zeile; Tage außerhalb des Monats bleiben leer.
+import { el, WEEKDAYS, MONTHS } from './dom.js';
+import { monthGrid, isSameDay } from '../calendar.js';
 import { itemsForDay } from '../items.js';
-import { eventEnd } from '../reminders.js';
 import { colorStyle } from '../colors.js';
-import { typeInfo, countText } from '../birthdays.js';
+import { typeInfo } from '../birthdays.js';
 import { isHaircut } from '../haircuts.js';
 
-const UPCOMING_LIMIT = 3;
-const UPCOMING_DAYS = 60;
+const BEFORE = 2; // Monate vor dem gewählten
+const AFTER = 14; // Monate danach
+const EXTEND = 6; // so viele Monate werden beim Scrollen nachgeladen
 
 function cell(c, today, events, birthdays, display, onDay) {
   const items = itemsForDay(events, birthdays, c.date);
@@ -38,7 +39,7 @@ function cell(c, today, events, birthdays, display, onDay) {
     vacation ? vacation.name : null,
   ].filter(Boolean).join(', ');
   return el('button', {
-    class: `cell${c.inMonth ? '' : ' out'}${isSameDay(c.date, today) ? ' today' : ''}${holiday ? ' holiday' : ''}${vacation ? ' vac' : ''}`,
+    class: `cell${isSameDay(c.date, today) ? ' today' : ''}${holiday ? ' holiday' : ''}${vacation ? ' vac' : ''}`,
     type: 'button',
     'aria-label': label,
     'data-key': c.key,
@@ -48,47 +49,95 @@ function cell(c, today, events, birthdays, display, onDay) {
     el('span', { class: 'lbls' }, shown, more ? el('i', { class: 'lbl more', text: `+${more}` }) : null));
 }
 
-/** Die nächsten Termine und Ereignisse ab jetzt. */
-export function upcoming(events, birthdays, now, limit = UPCOMING_LIMIT) {
-  const today = startOfDay(now);
-  const out = [];
-  for (let i = 0; i < UPCOMING_DAYS && out.length < limit; i++) {
-    const date = addDays(today, i);
-    const items = itemsForDay(events, birthdays, date);
-    for (const { birthday, age } of items.birthdays) out.push({ type: 'birthday', date, i, birthday, age });
-    for (const ev of items.events) {
-      if (i === 0 && !ev.allDay && eventEnd(ev) <= now) continue; // heute schon vorbei
-      out.push({ type: 'event', date, i, event: ev });
-    }
+const idxOf = (y, m) => y * 12 + m;
+const ymOf = (idx) => [Math.floor(idx / 12), ((idx % 12) + 12) % 12];
+
+function monthBlock(idx, { today, events, birthdays, display, onPickDay }) {
+  const [year, month0] = ymOf(idx);
+  const weeks = monthGrid(year, month0);
+  const offset = weeks[0].findIndex((c) => c.inMonth); // Spalte des Monatsersten
+  return el('section', { class: 'mblock', 'data-idx': String(idx), 'aria-label': `${MONTHS[month0]} ${year}` },
+    el('h2', { class: 'mhead', style: `--off:${offset}`, text: month0 === 0 ? `${MONTHS[month0]} ${year}` : MONTHS[month0] }),
+    el('div', { class: 'grid', role: 'grid' },
+      weeks.flat().map((c) => (c.inMonth ? cell(c, today, events, birthdays, display, onPickDay) : el('i', { class: 'blank', 'aria-hidden': 'true' })))));
+}
+
+// Scroll-Zustand über Neuzeichnen hinweg: oberster sichtbarer Monat + Abstand darin.
+let anchor = null; // { idx, offset }
+let visibleIdx = null;
+let pending = null; // Zielmonat eines laufenden weichen Scrollens (wird nach Nachladen erneut angesteuert)
+/** Nach bewusstem Wechsel (anderer Monat gewählt) die gemerkte Scrollposition vergessen. */
+export const resetMonthScroll = () => { anchor = null; visibleIdx = null; pending = null; };
+
+const scroller = () => document.querySelector('#view .month');
+const blockOf = (idx) => document.querySelector(`#view .mblock[data-idx="${idx}"]`);
+const headHeight = (sc) => sc.querySelector('.weekdays')?.offsetHeight || 0;
+
+/** Weich oder sofort zum Monat scrollen. false, wenn der Monat (noch) nicht geladen ist. */
+export function scrollToMonth(year, month0, smooth = false) {
+  const sc = scroller();
+  const block = sc && blockOf(idxOf(year, month0));
+  if (!block) return false;
+  pending = smooth ? idxOf(year, month0) : null;
+  sc.scrollTo({ top: block.offsetTop - headHeight(sc), behavior: smooth ? 'smooth' : 'auto' });
+  return true;
+}
+
+export function renderMonth(root, ctx) {
+  const { cursor, onVisibleMonth } = ctx;
+  const sc = el('div', { class: 'month' });
+  const list = el('div', { class: 'months' });
+  sc.append(el('div', { class: 'weekdays', 'aria-hidden': 'true' }, WEEKDAYS.map((d) => el('span', { text: d }))), list);
+  root.append(sc);
+
+  const center = anchor ? anchor.idx : idxOf(cursor.getFullYear(), cursor.getMonth());
+  let lo = center - BEFORE;
+  let hi = center + AFTER;
+  for (let i = lo; i <= hi; i++) list.append(monthBlock(i, ctx));
+
+  const place = () => {
+    const block = blockOf(anchor ? anchor.idx : idxOf(cursor.getFullYear(), cursor.getMonth()));
+    if (block) sc.scrollTop = block.offsetTop - headHeight(sc) + (anchor ? anchor.offset : 0);
+  };
+  place();
+
+  let ticking = false;
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      ticking = false;
+      if (!sc.isConnected) return; // Ansicht wurde inzwischen gewechselt
+      const wH = headHeight(sc);
+      const y = sc.scrollTop + wH; // Oberkante des sichtbaren Bereichs (unter der Wochentagsleiste)
+      // oberster Monat + Abstand darin (für Neuzeichnen)
+      const blocks = [...list.children];
+      const top = [...blocks].reverse().find((b) => b.offsetTop <= y) || blocks[0];
+      anchor = { idx: Number(top.dataset.idx), offset: y - top.offsetTop };
+      // Monat im oberen Drittel bestimmt den Titel
+      const probe = y + (sc.clientHeight - wH) / 3;
+      const cur = [...blocks].reverse().find((b) => b.offsetTop <= probe) || blocks[0];
+      const idx = Number(cur.dataset.idx);
+      if (pending === idx) pending = null;
+      if (idx !== visibleIdx) { visibleIdx = idx; const [yy, mm] = ymOf(idx); onVisibleMonth?.(yy, mm); }
+      // nachladen
+      if (sc.scrollTop < 500) {
+        const before = sc.scrollHeight;
+        const frag = document.createDocumentFragment();
+        for (let i = lo - EXTEND; i < lo; i++) frag.append(monthBlock(i, ctx));
+        lo -= EXTEND;
+        list.prepend(frag);
+        sc.scrollTop += sc.scrollHeight - before;
+        const target = pending !== null && blockOf(pending);
+        if (target) sc.scrollTo({ top: target.offsetTop - wH, behavior: 'smooth' }); // laufendes Scrollen fortsetzen
+      }
+      if (sc.scrollHeight - sc.scrollTop - sc.clientHeight < 900) {
+        const frag = document.createDocumentFragment();
+        for (let i = hi + 1; i <= hi + EXTEND; i++) frag.append(monthBlock(i, ctx));
+        hi += EXTEND;
+        list.append(frag);
+      }
+    });
   }
-  return out.slice(0, limit);
-}
-
-function upcomingList(list, onEvent, onBirthday) {
-  if (!list.length) return null;
-  const whenLabel = (it) => (it.i === 0 ? 'Heute' : it.i === 1 ? 'Morgen' : fmtWeekdayDay(it.date));
-  return el('section', { class: 'upcoming' },
-    el('h2', { text: 'Als Nächstes' }),
-    list.map((it) =>
-      it.type === 'event'
-        ? el('button', { class: 'up-row', type: 'button', style: colorStyle(it.event.color), onclick: () => onEvent(it.event) },
-            el('span', { class: 'up-when', text: whenLabel(it) }),
-            el('span', { class: 'up-title' }, el('span', { class: 'bar' }), it.event.title),
-            el('span', { class: 'up-meta', text: it.event.allDay ? 'Ganztägig' : it.event.start }))
-        : el('button', { class: 'up-row', type: 'button', onclick: () => onBirthday(it.birthday) },
-            el('span', { class: 'up-when', text: whenLabel(it) }),
-            el('span', { class: 'up-title' }, el('span', { class: 'bar bday' }), `${typeInfo(it.birthday).emoji} ${it.birthday.name}`),
-            el('span', { class: 'up-meta', text: countText(it.birthday, it.age) || '' }))
-    ));
-}
-
-export function renderMonth(root, { cursor, today, now, events, birthdays, display, onPickDay, onEvent, onBirthday }) {
-  const weeks = monthGrid(cursor.getFullYear(), cursor.getMonth());
-  root.append(
-    el('div', { class: 'month' },
-      el('div', { class: 'weekdays', 'aria-hidden': 'true' }, WEEKDAYS.map((d) => el('span', { text: d }))),
-      el('div', { class: 'grid', role: 'grid', style: `--rows:${weeks.length}` }, weeks.flat().map((c) => cell(c, today, events, birthdays, display, onPickDay))),
-      upcomingList(upcoming(events, birthdays, now), onEvent, onBirthday)
-    )
-  );
+  sc.addEventListener('scroll', onScroll, { passive: true });
 }

@@ -2,7 +2,7 @@
 
 Ein minimalistischer, privater Kalender fürs iPhone – als Web-App (PWA).
 
-- **Monat** – klassische Monatsansicht (Montag als Wochenstart), Punkte markieren Tage mit Terminen (blau), Geburtstagen (rot) und Feiertagen (grün), gelbe Balken zeigen Schulferien, darunter „Als Nächstes".
+- **Monat** – endlos scrollbare Monatsansicht (Montag als Wochenstart): runterscrollen von Monat zu Monat, jeder Monat beginnt in einer neuen Zeile. Namen der Termine und Ereignisse stehen direkt im Feld (Haarschnitte orange, bei Platzmangel zusammengefasst), Feiertage grün, gelbe Balken zeigen Schulferien. ‹ › springen zum Vor-/Folgemonat, Tipp auf einen Tag öffnet die Woche.
 - **Jahr** – herauszoomen wie im Apple-Kalender: Tab „Jahr", Tipp auf den Monatsnamen oder zwei Finger zusammenziehen. Dort alle 12 Monate auf einen Blick; Monat antippen (oder Finger auseinanderziehen) öffnet ihn.
 - **Feiertage & Schulferien** – gesetzliche Feiertage in Baden-Württemberg (für jedes Jahr berechnet) und die BW-Schulferien bis Sommer 2027. Im Tab „Jahr" lassen sie sich ein- und ausschalten. Ferien-Stand: November 2026, ohne Gewähr; bewegliche Ferientage einzelner Schulen fehlen.
 - **Woche** – Wochenplan mit Zeitraster. Zeigt denselben Datenbestand wie der Monat: was du einträgst, erscheint in beiden Ansichten. Freien Zeitslot antippen legt dort einen Termin an. **Termin lange drücken und ziehen** verschiebt ihn auf einen anderen Tag oder eine andere Uhrzeit (rastet auf 15 Minuten ein, die Dauer bleibt).
