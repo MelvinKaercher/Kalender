@@ -105,6 +105,7 @@ function render(anim = null) {
     onPickDay: (date) => { state.cursor = date; setView('week', 'zoom-in'); },
     onEvent: (event) => openEventForm({ event }),
     onBirthday: (birthday) => openBirthdayForm({ birthday }),
+    onVacation: (event) => openEventForm({ event }),
     onNewEvent: (date, start) => openEventForm({ date, start }),
     onMoveEvent: (event, changes) => store.saveEvent({ ...event, ...changes }),
     onAdd: () => openBirthdayForm({}),

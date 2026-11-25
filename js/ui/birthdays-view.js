@@ -1,5 +1,6 @@
 // Liste der jährlichen Ereignisse (Geburtstage, Sonstiges), sortiert nach dem nächsten Auftreten.
-import { el, MONTHS } from './dom.js';
+import { el, MONTHS, fmtDayShort } from './dom.js';
+import { toKey, fromKey } from '../calendar.js';
 import { sortByNext, typeInfo, countText } from '../birthdays.js';
 import { statusLabel } from './settings.js';
 import { syncLabel } from './sync-settings.js';
@@ -30,8 +31,26 @@ function syncRow(syncStatus, onSync) {
     el('span', { class: 'notif-chev', 'aria-hidden': 'true', text: '›' }));
 }
 
-export function renderBirthdays(root, { birthdays, now, onBirthday, onAdd, pushStatus, onNotifications, syncStatus, onSync }) {
-  if (!birthdays.length) {
+/** Anstehender oder laufender Urlaub (Zeilen für die Ereignis-Liste). */
+function vacationRows(events, now, onVacation) {
+  const todayKey = toKey(now);
+  return events
+    .filter((e) => e.vacation && (e.endDate || e.date) >= todayKey)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((e) => {
+      const range = e.endDate ? `${fmtDayShort(fromKey(e.date))} – ${fmtDayShort(fromKey(e.endDate))}` : fmtDayShort(fromKey(e.date));
+      const running = e.date <= todayKey;
+      const days = Math.round((fromKey(e.date) - fromKey(todayKey)) / 86400000);
+      return el('button', { class: 'b-row', type: 'button', 'aria-label': `Urlaub: ${e.title}`, onclick: () => onVacation(e) },
+        el('span', { class: 'b-av', 'aria-hidden': 'true', text: '🌴' }),
+        el('span', {}, el('div', { class: 'b-name', text: e.title }), el('div', { class: 'b-date', text: range })),
+        el('span', { class: `b-in${running || days <= 7 ? ' soon' : ''}`, text: running ? 'läuft' : inLabel(days) }));
+    });
+}
+
+export function renderBirthdays(root, { birthdays, events = [], onVacation = () => {}, now, onBirthday, onAdd, pushStatus, onNotifications, syncStatus, onSync }) {
+  const vac = vacationRows(events, now, onVacation);
+  if (!birthdays.length && !vac.length) {
     root.append(
       el('div', { class: 'bdays' },
         notificationsRow(pushStatus, onNotifications),
@@ -51,6 +70,7 @@ export function renderBirthdays(root, { birthdays, now, onBirthday, onAdd, pushS
     el('div', { class: 'bdays' },
       notificationsRow(pushStatus, onNotifications),
         syncRow(syncStatus, onSync),
+      vac,
       list.map(({ birthday: b, age, days }) =>
         el('button', { class: 'b-row', type: 'button', 'aria-label': `${typeInfo(b).label}: ${b.name}`, onclick: () => onBirthday(b) },
           el('span', { class: 'b-av', 'aria-hidden': 'true', text: typeInfo(b).emoji }),

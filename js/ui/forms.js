@@ -41,6 +41,7 @@ function shake(node) {
 /* ───────── Termin ───────── */
 
 export function openEventForm({ event = null, date = new Date(), start = '09:00', haircut = false } = {}) {
+  if (event && event.vacation) return openVacationForm({ event });
   const isNew = !event;
   const startMin = toMinutes(start);
   const d = event
@@ -225,6 +226,60 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
   return sheet;
 }
 
+/* ───────── Urlaub (von … bis …, ganztägig, in allen Ansichten markiert) ───────── */
+
+export const VACATION_COLOR = '#12a594';
+export const VACATION_TITLE = 'Urlaub';
+
+export function openVacationForm({ event = null, date = new Date() } = {}) {
+  const isNew = !event;
+  const from0 = event ? event.date : toKey(date);
+  const to0 = event ? event.endDate || event.date : from0;
+  const name = el('input', { type: 'text', class: 'title', placeholder: VACATION_TITLE, value: event ? event.title : '', maxlength: '120', autocomplete: 'off', enterkeyhint: 'done' });
+  const fromIn = el('input', { type: 'date', value: from0, required: true, 'aria-label': 'Von' });
+  const toIn = el('input', { type: 'date', value: to0, min: from0, required: true, 'aria-label': 'Bis' });
+  const error = el('div', { class: 'form-error', role: 'alert' });
+  fromIn.addEventListener('change', () => {
+    toIn.min = fromIn.value;
+    if (fromIn.value && (!toIn.value || toIn.value < fromIn.value)) toIn.value = fromIn.value;
+    error.textContent = '';
+  });
+
+  async function save() {
+    if (!fromIn.value || !toIn.value) { error.textContent = 'Bitte „Von“ und „Bis“ wählen.'; return; }
+    if (toIn.value < fromIn.value) { error.textContent = '„Bis“ darf nicht vor „Von“ liegen.'; shake(toIn); return; }
+    await store.saveEvent({
+      ...(event || {}),
+      id: event ? event.id : null,
+      title: name.value.trim() || VACATION_TITLE,
+      date: fromIn.value,
+      endDate: toIn.value > fromIn.value ? toIn.value : undefined,
+      allDay: true, start: null, end: null,
+      note: event ? event.note || '' : '',
+      remind: null,
+      color: VACATION_COLOR,
+      vacation: true,
+    });
+    sheet.close();
+  }
+
+  const sheet = openSheet({
+    title: isNew ? 'Neuer Urlaub' : 'Urlaub',
+    left: barBtn('Abbrechen', () => sheet.close()),
+    right: barBtn(isNew ? 'Hinzufügen' : 'Sichern', save, true),
+    content: [
+      el('div', { class: 'group' }, el('div', { class: 'row' }, name)),
+      el('div', { class: 'group' },
+        el('label', { class: 'row' }, el('span', { text: 'Von' }), fromIn),
+        el('label', { class: 'row' }, el('span', { text: 'Bis' }), toIn)),
+      error,
+      isNew ? null : deleteButton(async () => { await store.deleteEvent(event.id); sheet.close(); }),
+    ],
+  });
+  name.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), name.blur()));
+  return sheet;
+}
+
 /* ───────── Ereignis (Geburtstag, Sonstiges – jedes Jahr wiederkehrend) ───────── */
 
 // Beschriftungen je Typ
@@ -272,6 +327,12 @@ export function openBirthdayForm({ birthday = null, date = new Date() } = {}) {
     error.textContent = '';
   }
   paintType();
+  if (isNew) {
+    typeButtons.push(el('button', {
+      class: 'seg-btn', type: 'button', role: 'radio', 'aria-checked': 'false',
+      onclick: () => { sheet.close(); setTimeout(() => openVacationForm({ date }), 320); },
+    }, '🌴 Urlaub'));
+  }
 
   async function save() {
     const n = name.value.trim();
