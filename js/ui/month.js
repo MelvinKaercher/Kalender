@@ -1,10 +1,11 @@
-// Monatsansicht: Raster mit Punkten für Termine/Ereignisse + "Als Nächstes"-Liste.
+// Monatsansicht: Raster mit Namen der Termine/Ereignisse + "Als Nächstes"-Liste.
 import { el, WEEKDAYS, fmtWeekdayDay } from './dom.js';
 import { monthGrid, isSameDay, addDays, startOfDay } from '../calendar.js';
 import { itemsForDay } from '../items.js';
 import { eventEnd } from '../reminders.js';
 import { colorStyle } from '../colors.js';
 import { typeInfo, countText } from '../birthdays.js';
+import { isHaircut } from '../haircuts.js';
 
 const UPCOMING_LIMIT = 3;
 const UPCOMING_DAYS = 60;
@@ -15,10 +16,14 @@ function cell(c, today, events, birthdays, display, onDay) {
   const nBdays = items.birthdays.length;
   const holiday = display.holidays ? items.holidays[0] : null;
   const vacation = display.vacations ? items.vacations[0] : null;
-  const dots = [
-    ...items.events.slice(0, 2).map((ev) => el('i', { class: 'dot', style: colorStyle(ev.color) })),
-    ...(nBdays ? [el('i', { class: 'dot bday' })] : []),
+  // Namen direkt im Feld (wie bei Feiertagen): Ereignisse zuerst, dann Termine; maximal 3 Zeilen inkl. Feiertag
+  const names = [
+    ...items.birthdays.map(({ birthday }) => el('i', { class: 'lbl bday', text: `${typeInfo(birthday).emoji}${birthday.name}` })),
+    ...items.events.map((ev) => el('i', { class: 'lbl', style: colorStyle(ev.color), text: isHaircut(ev) ? `✂︎${ev.haircut.customer || 'Haare'}` : ev.title })),
   ];
+  const room = Math.max(0, 3 - (holiday ? 1 : 0));
+  const shown = names.length > room ? names.slice(0, Math.max(0, room - 1)) : names;
+  const more = names.length - shown.length;
   const label = [
     c.date.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }),
     nEvents ? `${nEvents} ${nEvents === 1 ? 'Termin' : 'Termine'}` : null,
@@ -33,8 +38,8 @@ function cell(c, today, events, birthdays, display, onDay) {
     'data-key': c.key,
     onclick: () => onDay(c.date),
   }, el('span', { class: 'num', text: String(c.date.getDate()) }),
-    el('span', { class: 'dots' }, dots),
-    holiday ? el('span', { class: 'hname', text: holiday.short }) : null);
+    holiday ? el('span', { class: 'hname', text: holiday.short }) : null,
+    el('span', { class: 'lbls' }, shown, more ? el('i', { class: 'lbl more', text: `+${more}` }) : null));
 }
 
 /** Die nächsten Termine und Ereignisse ab jetzt. */
