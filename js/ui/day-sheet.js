@@ -4,6 +4,7 @@ import { openSheet, closeSheet } from './sheet.js';
 import { itemsForDay } from '../items.js';
 import * as store from '../store.js';
 import { openEventForm, openBirthdayForm } from './forms.js';
+import { colorStyle } from '../colors.js';
 
 export function openDaySheet(date) {
   const { events, birthdays } = itemsForDay(store.events(), store.birthdays(), date);
@@ -15,7 +16,7 @@ export function openDaySheet(date) {
           el('div', { class: 'name', text: `🎂 ${birthday.name}` }),
           age ? el('div', { class: 'note', text: `wird ${age}` }) : null))),
     ...events.map((ev) =>
-      el('button', { class: 'day-row', type: 'button', onclick: () => openEventForm({ event: ev }) },
+      el('button', { class: 'day-row', type: 'button', style: colorStyle(ev.color), onclick: () => openEventForm({ event: ev }) },
         el('span', { class: 'when', text: fmtRange(ev) }),
         el('span', { class: 'what' },
           el('div', { class: 'name', text: ev.title }),

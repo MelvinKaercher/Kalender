@@ -3,6 +3,7 @@ import { el, WEEKDAYS, fmtWeekdayDay } from './dom.js';
 import { monthGrid, isSameDay, addDays, startOfDay } from '../calendar.js';
 import { itemsForDay } from '../items.js';
 import { eventEnd } from '../reminders.js';
+import { colorStyle } from '../colors.js';
 
 const UPCOMING_LIMIT = 3;
 const UPCOMING_DAYS = 60;
@@ -12,7 +13,7 @@ function cell(c, today, events, birthdays, onDay) {
   const nEvents = items.events.length;
   const nBdays = items.birthdays.length;
   const dots = [
-    ...Array.from({ length: Math.min(nEvents, 2) }, () => el('i', { class: 'dot' })),
+    ...items.events.slice(0, 2).map((ev) => el('i', { class: 'dot', style: colorStyle(ev.color) })),
     ...(nBdays ? [el('i', { class: 'dot bday' })] : []),
   ];
   const label = [
@@ -52,7 +53,7 @@ function upcomingList(list, onEvent, onBirthday) {
     el('h2', { text: 'Als Nächstes' }),
     list.map((it) =>
       it.type === 'event'
-        ? el('button', { class: 'up-row', type: 'button', onclick: () => onEvent(it.event) },
+        ? el('button', { class: 'up-row', type: 'button', style: colorStyle(it.event.color), onclick: () => onEvent(it.event) },
             el('span', { class: 'up-when', text: whenLabel(it) }),
             el('span', { class: 'up-title' }, el('span', { class: 'bar' }), it.event.title),
             el('span', { class: 'up-meta', text: it.event.allDay ? 'Ganztägig' : it.event.start }))

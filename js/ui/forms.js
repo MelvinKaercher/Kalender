@@ -4,6 +4,7 @@ import { openSheet } from './sheet.js';
 import * as store from '../store.js';
 import { toKey, fromMinutes, toMinutes, daysInMonth } from '../calendar.js';
 import { REMIND_OPTIONS } from '../reminders.js';
+import { PALETTE, colorStyle, normalizeHex } from '../colors.js';
 
 const barBtn = (label, onclick, strong = false) =>
   el('button', { class: `bar-btn${strong ? ' strong' : ''}`, type: 'button', onclick, text: label });
@@ -55,6 +56,29 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
   const endIn = el('input', { type: 'time', value: d.end, step: '300' });
   const remindSel = el('select', { 'aria-label': 'Erinnerung' });
   const note = el('textarea', { placeholder: 'Notiz', rows: '3', maxlength: '2000' });
+
+  // Farbe: Standard, 8 Vorschläge, freie Wahl (Farbwähler des Geräts)
+  let color = normalizeHex(d.color);
+  const swatchOptions = [{ value: null, name: 'Standard' }, ...PALETTE];
+  const swatchButtons = swatchOptions.map((o) =>
+    el('button', {
+      class: `sw${o.value ? '' : ' default'}`, type: 'button', role: 'radio', 'aria-label': o.name,
+      style: colorStyle(o.value), onclick: () => { color = o.value; refreshSwatches(); },
+    }));
+  const customInput = el('input', { type: 'color', value: color || '#3e63dd', 'aria-label': 'Eigene Farbe wählen' });
+  const customSwatch = el('label', { class: 'sw custom', 'aria-label': 'Eigene Farbe' }, customInput);
+  customInput.addEventListener('input', () => { color = normalizeHex(customInput.value); refreshSwatches(); });
+  function refreshSwatches() {
+    swatchOptions.forEach((o, i) => {
+      const on = color === o.value;
+      swatchButtons[i].classList.toggle('on', on);
+      swatchButtons[i].setAttribute('aria-checked', String(on));
+    });
+    const isCustom = !!color && !PALETTE.some((p) => p.value === color);
+    customSwatch.classList.toggle('on', isCustom);
+    customSwatch.style.cssText = isCustom ? colorStyle(color) : '';
+  }
+  refreshSwatches();
   note.value = d.note || '';
   const error = el('div', { class: 'form-error', role: 'alert' });
 
@@ -121,6 +145,7 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
       end: allDay.checked ? null : endIn.value,
       note: note.value.trim(),
       remind: remindSel.value === '' ? null : Number(remindSel.value),
+      color,
     });
     sheet.close();
   }
@@ -133,6 +158,9 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
       startRow, endRow,
     ),
     el('div', { class: 'group' }, el('label', { class: 'row' }, el('span', { text: 'Erinnerung' }), remindSel)),
+    el('div', { class: 'group' },
+      el('div', { class: 'row col' }, el('span', { text: 'Farbe' }),
+        el('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'Farbe' }, swatchButtons, customSwatch))),
     el('div', { class: 'group' }, el('div', { class: 'row stack' }, note)),
     error,
     isNew ? null : deleteButton(async () => { await store.deleteEvent(d.id); sheet.close(); }),

@@ -2,6 +2,7 @@
 import { el, WEEKDAYS } from './dom.js';
 import { weekDays, isSameDay, toKey, toMinutes, fromMinutes } from '../calendar.js';
 import { itemsForDay } from '../items.js';
+import { colorStyle } from '../colors.js';
 
 const HOUR = 52; // px pro Stunde – muss zu --hour in styles.css passen
 const MIN_BLOCK_MIN = 30; // kürzere Termine werden mindestens so hoch gezeichnet
@@ -67,7 +68,7 @@ export function renderWeek(root, { cursor, today, now, events, birthdays, onDay,
             x.birthdays.map(({ birthday }) =>
               el('button', { class: 'chip bday', type: 'button', onclick: () => onBirthday(birthday) }, `🎂 ${birthday.name}`)),
             x.events.filter((e) => e.allDay).map((e) =>
-              el('button', { class: 'chip', type: 'button', onclick: () => onEvent(e) }, e.title))
+              el('button', { class: 'chip', type: 'button', style: colorStyle(e.color), onclick: () => onEvent(e) }, e.title))
           )
         ))
     : el('div', { class: 'w-allday' });
@@ -83,7 +84,7 @@ export function renderWeek(root, { cursor, today, now, events, birthdays, onDay,
       col.append(
         el('button', {
           class: `block${it.lanes > 1 ? ' narrow' : ''}`, type: 'button',
-          style: `top:${(it.s / 60) * HOUR}px;height:${((it.vis - it.s) / 60) * HOUR - 1}px;left:calc(${it.lane * w}% + 1px);width:calc(${w}% - 2px)`,
+          style: `${colorStyle(it.ev.color)}top:${(it.s / 60) * HOUR}px;height:${((it.vis - it.s) / 60) * HOUR - 1}px;left:calc(${it.lane * w}% + 1px);width:calc(${w}% - 2px)`,
           'aria-label': `${it.ev.title}, ${it.ev.start} bis ${it.ev.end}`,
           onclick: (e) => { e.stopPropagation(); onEvent(it.ev); },
         }, it.ev.title, it.lanes === 1 && it.vis - it.s >= 45 ? el('span', { class: 't', text: it.ev.start }) : null)
