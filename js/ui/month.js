@@ -17,11 +17,17 @@ function cell(c, today, events, birthdays, display, onDay) {
   const holiday = display.holidays ? items.holidays[0] : null;
   const vacation = display.vacations ? items.vacations[0] : null;
   // Namen direkt im Feld (wie bei Feiertagen): Ereignisse zuerst, dann Termine; maximal 3 Zeilen inkl. Feiertag
-  const names = [
-    ...items.birthdays.map(({ birthday }) => el('i', { class: 'lbl bday', text: `${typeInfo(birthday).emoji}${birthday.name}` })),
-    ...items.events.map((ev) => el('i', { class: 'lbl', style: colorStyle(ev.color), text: isHaircut(ev) ? `✂︎${ev.haircut.customer || 'Haare'}` : ev.title })),
-  ];
   const room = Math.max(0, 3 - (holiday ? 1 : 0));
+  const hairs = items.events.filter(isHaircut);
+  const plain = items.events.filter((e) => !isHaircut(e));
+  const bdayLabels = items.birthdays.map(({ birthday }) => el('i', { class: 'lbl bday', text: `${typeInfo(birthday).emoji}${birthday.name}` }));
+  const plainLabels = plain.map((ev) => el('i', { class: 'lbl', style: colorStyle(ev.color), text: ev.title }));
+  const hairLabels = hairs.map((ev) => el('i', { class: 'lbl', style: colorStyle(ev.color), text: `✂︎${ev.haircut.customer || 'Haare'}` }));
+  // Zu voll? Zuerst die Haarschnitte ohne Namen zusammenfassen ("✂︎ 4"), danach auch die übrigen Termine.
+  const sumLabel = (list, text) => (list.length ? [el('i', { class: 'lbl', style: colorStyle(list[0].color), text })] : []);
+  let names = [...bdayLabels, ...plainLabels, ...hairLabels];
+  if (names.length > room) names = [...bdayLabels, ...plainLabels, ...sumLabel(hairs, `✂︎ ${hairs.length}`)];
+  if (names.length > room) names = [...bdayLabels, ...sumLabel(plain, `${plain.length} Termin${plain.length === 1 ? '' : 'e'}`), ...sumLabel(hairs, `✂︎ ${hairs.length}`)];
   const shown = names.length > room ? names.slice(0, Math.max(0, room - 1)) : names;
   const more = names.length - shown.length;
   const label = [
