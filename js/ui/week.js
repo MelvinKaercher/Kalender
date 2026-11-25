@@ -3,6 +3,7 @@ import { el, WEEKDAYS } from './dom.js';
 import { weekDays, isSameDay, toKey, toMinutes, fromMinutes } from '../calendar.js';
 import { itemsForDay } from '../items.js';
 import { colorStyle } from '../colors.js';
+import { attachDrag, clickSuppressed } from './week-drag.js';
 
 const HOUR = 52; // px pro Stunde – muss zu --hour in styles.css passen
 const MIN_BLOCK_MIN = 30; // kürzere Termine werden mindestens so hoch gezeichnet
@@ -43,7 +44,7 @@ export function layoutDay(events) {
   return out;
 }
 
-export function renderWeek(root, { cursor, today, now, events, birthdays, display, onDay, onEvent, onBirthday, onNewEvent }) {
+export function renderWeek(root, { cursor, today, now, events, birthdays, display, onDay, onEvent, onBirthday, onNewEvent, onMoveEvent }) {
   const days = weekDays(cursor);
   const data = days.map((d) => itemsForDay(events, birthdays, d));
 
@@ -83,14 +84,15 @@ export function renderWeek(root, { cursor, today, now, events, birthdays, displa
     const col = el('div', { class: `w-col${isSameDay(d, today) ? ' today' : ''}`, 'data-key': toKey(d) });
     for (const it of layoutDay(data[i].events.filter((e) => !e.allDay))) {
       const w = 100 / it.lanes;
-      col.append(
-        el('button', {
+      const blockEl = el('button', {
           class: `block${it.lanes > 1 ? ' narrow' : ''}`, type: 'button',
           style: `${colorStyle(it.ev.color)}top:${(it.s / 60) * HOUR}px;height:${((it.vis - it.s) / 60) * HOUR - 1}px;left:calc(${it.lane * w}% + 1px);width:calc(${w}% - 2px)`,
           'aria-label': `${it.ev.title}, ${it.ev.start} bis ${it.ev.end}`,
-          onclick: (e) => { e.stopPropagation(); onEvent(it.ev); },
-        }, it.ev.title, it.lanes === 1 && it.vis - it.s >= 45 ? el('span', { class: 't', text: it.ev.start }) : null)
-      );
+          onclick: (e) => { e.stopPropagation(); if (!clickSuppressed()) onEvent(it.ev); },
+        }, it.ev.title, it.lanes === 1 && it.vis - it.s >= 45 ? el('span', { class: 't', text: it.ev.start }) : null);
+      col.append(blockEl);
+      // Lange drücken und ziehen = verschieben (die Raster-Elemente werden erst beim Ziehen gebraucht)
+      attachDrag(blockEl, { ev: it.ev, hourPx: HOUR, geometry: () => ({ scroll, body: scroll.firstChild, cols }), onDrop: onMoveEvent });
     }
     if (isSameDay(d, today)) {
       const mins = now.getHours() * 60 + now.getMinutes();

@@ -2,8 +2,10 @@
 
 Ein minimalistischer, privater Kalender fürs iPhone – als Web-App (PWA).
 
-- **Monat** – klassische Monatsansicht (Montag als Wochenstart), Punkte markieren Tage mit Terminen (blau) und Geburtstagen (rot), darunter „Als Nächstes".
-- **Woche** – Wochenplan mit Zeitraster. Zeigt denselben Datenbestand wie der Monat: was du einträgst, erscheint in beiden Ansichten. Freien Zeitslot antippen legt dort einen Termin an.
+- **Monat** – klassische Monatsansicht (Montag als Wochenstart), Punkte markieren Tage mit Terminen (blau), Geburtstagen (rot) und Feiertagen (grün), gelbe Balken zeigen Schulferien, darunter „Als Nächstes".
+- **Jahr** – herauszoomen wie im Apple-Kalender: Tab „Jahr", Tipp auf den Monatsnamen oder zwei Finger zusammenziehen. Dort alle 12 Monate auf einen Blick; Monat antippen (oder Finger auseinanderziehen) öffnet ihn.
+- **Feiertage & Schulferien** – gesetzliche Feiertage in Baden-Württemberg (für jedes Jahr berechnet) und die BW-Schulferien bis Sommer 2027. Im Tab „Jahr" lassen sie sich ein- und ausschalten. Ferien-Stand: November 2026, ohne Gewähr; bewegliche Ferientage einzelner Schulen fehlen.
+- **Woche** – Wochenplan mit Zeitraster. Zeigt denselben Datenbestand wie der Monat: was du einträgst, erscheint in beiden Ansichten. Freien Zeitslot antippen legt dort einen Termin an. **Termin lange drücken und ziehen** verschiebt ihn auf einen anderen Tag oder eine andere Uhrzeit (rastet auf 15 Minuten ein, die Dauer bleibt).
 - **Geburtstage** – einmal eintragen, kehren jedes Jahr automatisch wieder (mit Alter, wenn das Geburtsjahr bekannt ist). Sie erscheinen im Monat, in der Woche und in einer eigenen Liste.
 - **Farben** – jeder Termin kann eine eigene Farbe haben (8 Vorschläge oder frei wählbar). Sie erscheint in Monat, Woche und Tages-Sheet.
 - **Erinnerungen** – Termine können „5 Min. vorher" bis „1 Tag vorher" erinnern. Die Erinnerung erscheint als Banner, **solange die App geöffnet ist bzw. sobald du sie öffnest**.
@@ -48,6 +50,9 @@ Aufbau:
 | `js/items.js` | „was passiert an diesem Tag" – gemeinsame Quelle für Monat, Woche, Tages-Sheet |
 | `js/reminders.js` | welche Erinnerungen sind gerade fällig |
 | `js/colors.js` | Termin-Farben (Palette, Hilfsfunktionen) |
+| `js/holidays.js`, `js/school-holidays.js` | Feiertage (berechnet) und BW-Schulferien (Datenliste zum Ergänzen) |
+| `js/drag-math.js`, `js/ui/week-drag.js` | Verschieben per Finger: Rechenlogik und Touch-Steuerung |
+| `js/ui/year.js` | Jahresansicht |
 | `js/push.js`, `js/ui/settings.js` | Push-Anmeldung und Einstellungs-Sheet |
 | `worker/` | Push-Server (Cloudflare Worker), teilt sich `js/birthdays.js` mit der App |
 | `js/store.js` | IndexedDB + Cache |

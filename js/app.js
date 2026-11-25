@@ -97,6 +97,7 @@ function render(anim = null) {
     onEvent: (event) => openEventForm({ event }),
     onBirthday: (birthday) => openBirthdayForm({ birthday }),
     onNewEvent: (date, start) => openEventForm({ date, start }),
+    onMoveEvent: (event, changes) => store.saveEvent({ ...event, ...changes }),
     onAdd: () => openBirthdayForm({}),
     pushStatus: push.status(),
     onNotifications: () => openNotificationSettings({ push, onChange: () => render() }),

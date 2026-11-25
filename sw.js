@@ -25,6 +25,8 @@ const ASSETS = [
   'js/ui/month.js',
   'js/ui/year.js',
   'js/ui/week.js',
+  'js/ui/week-drag.js',
+  'js/drag-math.js',
   'js/ui/birthdays-view.js',
   'js/ui/day-sheet.js',
   'js/ui/banner.js',

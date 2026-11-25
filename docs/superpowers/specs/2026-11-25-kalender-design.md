@@ -50,3 +50,13 @@ Wunsch von Melvin: (1) Termine in frei wählbarer Farbe, (2) für jeden Geburtst
 - **In-App-Banner** kennen dieselben vier Stufen (gemeinsame Logik in `js/birthdays.js`), erscheinen aber nur am Tag der Stufe und bis zu zwei Tage danach, mit echter Restzeit.
 - **iOS-Regel:** Jede Push-Nachricht zeigt eine sichtbare Benachrichtigung, sonst entzieht iOS die Berechtigung.
 - **Nicht testbar hier:** die Zustellung über Apples Push-Dienst. Erster echter Test: „Testnachricht senden" auf dem iPhone.
+
+## Runde 3 – Jahresansicht, Feiertage, Schulferien, Verschieben
+Wunsch von Melvin: wie im Apple-Kalender herauszoomen und Monate schnell wählen, Feiertage, Schulferien Baden-Württemberg bis Juli 2027, Termine in der Woche per Finger verschieben.
+
+- **Jahresansicht:** 4. Tab „Jahr" (12 Mini-Monate). Zugang auch per Tipp auf den Monatstitel und Zwei-Finger-Zusammenziehen; zurück per Monat antippen oder Auseinanderziehen. Die Geste läuft über Touch-Ereignisse; `gesturestart/-change` werden nur unterdrückt, damit iOS nicht die ganze Seite zoomt.
+- **Feiertage:** Baden-Württemberg, aus dem Ostersonntag berechnet (gilt für jedes Jahr). Nicht dabei: Reformationstag, Mariä Himmelfahrt, Buß- und Bettag.
+- **Schulferien BW (Entscheidung des Entwicklers zur Quellenlage):** Die offizielle Seite des Kultusministeriums war nicht abrufbar. Grundlage sind übereinstimmende Ferienportale; bei den Osterferien 2027 nennen einige Portale 25.03.–03.04., hier gilt „Ferien ab 30.03., 25.03. einzeln unterrichtsfrei". Anzeige als gelber Balken am Tag. Daten in `js/school-holidays.js`.
+- **Anzeige:** Feiertage grün, Ferien gelb, ein-/ausschaltbar (lokal, `meta`-Eintrag `display`).
+- **Verschieben:** Langdruck ca. 0,4 s, ziehen, Einrasten auf 15 Minuten, Dauer bleibt, Auto-Scroll am Rand, Zeitanzeige am Finger. Touch-Ereignisse mit `passive:false` nur am Termin-Block, damit normales Scrollen und Antippen unverändert bleiben. Ganztägige Termine und Geburtstage sind nicht verschiebbar; Größe ändern gibt es (noch) nicht.
+- **Nicht testbar hier:** das echte Gefühl auf iOS (Dauer des Langdrucks, Schwelle der Zwei-Finger-Geste). Die Schwellen stehen als Konstanten (`HOLD_MS` in `js/ui/week-drag.js`, Verhältniswerte in `js/app.js`) und lassen sich nach dem Test auf dem iPhone nachjustieren.
