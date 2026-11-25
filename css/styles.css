@@ -79,8 +79,15 @@ input, select, textarea { font: inherit; color: inherit; }
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-#title .sub { color: var(--text-2); font-weight: 500; margin-left: 6px; }
-.actions { display: flex; align-items: center; gap: 6px; }
+#title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#title .sub { color: var(--text-2); font-weight: 500; }
+#title .sub.small { font-size: 17px; font-weight: 600; }
+.actions { display: flex; align-items: center; gap: 6px; flex: none; margin-left: 12px; }
+
+/* Navigation: ‹ Heute › (Monat und Woche) */
+.nav { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 10px 2px; min-height: 44px; }
+.nav-btn { width: 52px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--accent); }
+.nav-btn:active { background: var(--accent-soft); }
 .text-btn { color: var(--accent); font-weight: 600; font-size: 16px; padding: 10px 10px; border-radius: 10px; }
 .text-btn:active { background: var(--accent-soft); }
 .round-btn {

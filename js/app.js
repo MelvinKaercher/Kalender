@@ -32,7 +32,7 @@ function renderHeader(today) {
   let showToday = false;
 
   if (view === 'month') {
-    title.append(MONTHS[cursor.getMonth()], el('span', { class: 'sub', text: String(cursor.getFullYear()) }));
+    title.append(MONTHS[cursor.getMonth()], ' ', el('span', { class: 'sub', text: String(cursor.getFullYear()) }));
     showToday = !isSameMonth(cursor, today);
   } else if (view === 'week') {
     const days = weekDays(cursor);
@@ -40,13 +40,18 @@ function renderHeader(today) {
     const range = first.getMonth() === last.getMonth()
       ? `${first.getDate()}.–${fmtDayShort(last)}`
       : `${fmtDayShort(first)} – ${fmtDayShort(last)}`;
-    title.append(`KW ${isoWeek(cursor)}`, el('span', { class: 'sub', text: range }));
+    title.append(`KW ${isoWeek(cursor)}`, ' ', el('span', { class: 'sub small', text: range }));
     showToday = toKey(startOfWeek(cursor)) !== toKey(startOfWeek(today));
   } else {
     title.append('Geburtstage');
   }
 
+  $('#nav').hidden = view === 'birthdays';
   $('#btn-today').hidden = !showToday;
+  const unit = view === 'week' ? 'Woche' : 'Monat';
+  $('#btn-prev').setAttribute('aria-label', view === 'week' ? 'Vorherige Woche' : 'Vorheriger Monat');
+  $('#btn-next').setAttribute('aria-label', view === 'week' ? 'Nächste Woche' : 'Nächster Monat');
+  $('#btn-today').setAttribute('aria-label', `Zur aktuellen ${unit}`);
   $('#btn-add').setAttribute('aria-label', view === 'birthdays' ? 'Geburtstag hinzufügen' : 'Termin hinzufügen');
   document.querySelectorAll('#tabbar button').forEach((b) => {
     const active = b.dataset.view === view;
@@ -123,6 +128,14 @@ function addForCurrentView() {
 }
 
 $('#btn-today').addEventListener('click', goToday);
+$('#btn-prev').addEventListener('click', () => go(-1));
+$('#btn-next').addEventListener('click', () => go(1));
+// Pfeiltasten (z. B. am Rechner), wenn gerade kein Sheet/Eingabefeld aktiv ist
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest?.('input, textarea, select') || document.querySelector('.sheet')) return;
+  if (e.key === 'ArrowLeft') go(-1);
+  else if (e.key === 'ArrowRight') go(1);
+});
 $('#btn-add').addEventListener('click', addForCurrentView);
 document.querySelectorAll('#tabbar button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 

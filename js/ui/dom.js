@@ -32,7 +32,7 @@ export const MONTHS = [
 const dayLong = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
 const dayShort = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short' });
 export const fmtDayLong = (d) => dayLong.format(d);
-export const fmtDayShort = (d) => dayShort.format(d).replace('.', '');
+export const fmtDayShort = (d) => dayShort.format(d); // "30. Nov."
 
 /** "Mi 25" */
 export const fmtWeekdayDay = (d) => `${WEEKDAYS[(d.getDay() + 6) % 7]} ${d.getDate()}`;

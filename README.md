@@ -7,7 +7,7 @@ Ein minimalistischer, privater Kalender fürs iPhone – als Web-App (PWA).
 - **Geburtstage** – einmal eintragen, kehren jedes Jahr automatisch wieder (mit Alter, wenn das Geburtsjahr bekannt ist). Sie erscheinen im Monat, in der Woche und in einer eigenen Liste.
 - **Erinnerungen** – Termine können „5 Min. vorher" bis „1 Tag vorher" erinnern. Die Erinnerung erscheint als Banner, **solange die App geöffnet ist bzw. sobald du sie öffnest** (keine Push-Nachrichten – siehe unten).
 - **Privat** – alle Daten liegen ausschließlich auf deinem Gerät (IndexedDB). Kein Konto, kein Server, kein Tracking.
-- Dark Mode folgt automatisch dem iPhone, Wischen wechselt Monat bzw. Woche, funktioniert offline.
+- Dark Mode folgt automatisch dem iPhone, Zwischen Monaten und Wochen wechselst du mit den Pfeilen ‹ › (oder per Wisch), „Heute" springt zurück. Funktioniert offline.
 
 ## Aufs iPhone bringen
 

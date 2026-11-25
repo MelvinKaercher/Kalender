@@ -1,7 +1,7 @@
 // Service Worker: macht die App offline-fähig.
 // Strategie "stale-while-revalidate": sofort aus dem Cache, im Hintergrund aktualisieren.
 // Bei größeren Änderungen CACHE-Version erhöhen, damit alte Dateien verschwinden.
-const CACHE = 'kalender-v1';
+const CACHE = 'kalender-v2';
 const ASSETS = [
   './',
   'index.html',
