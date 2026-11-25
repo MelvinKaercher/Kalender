@@ -1,7 +1,7 @@
 // Service Worker: macht die App offline-fähig.
-// Strategie "stale-while-revalidate": sofort aus dem Cache, im Hintergrund aktualisieren.
+// Strategie "Netz zuerst": neue Versionen erscheinen sofort; ohne Netz (oder bei langsamem Netz) kommt der Cache.
 // Bei größeren Änderungen CACHE-Version erhöhen, damit alte Dateien verschwinden.
-const CACHE = 'kalender-v4';
+const CACHE = 'kalender-v5';
 const ASSETS = [
   './',
   'index.html',
@@ -55,7 +55,7 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.match(req, { ignoreSearch: true }).then((hit) => {
-      const network = fetch(req)
+      const network = fetch(req, { cache: 'no-cache' })
         .then((res) => {
           if (res.ok) {
             const copy = res.clone();
@@ -64,7 +64,9 @@ self.addEventListener('fetch', (event) => {
           return res;
         })
         .catch(() => hit || (req.mode === 'navigate' ? caches.match('index.html') : Response.error()));
-      return hit || network;
+      if (!hit) return network;
+      // Netz zuerst, aber höchstens 3 s warten, dann den Cache nehmen (Netz lädt im Hintergrund weiter).
+      return Promise.race([network, new Promise((r) => setTimeout(() => r(hit), 3000))]);
     })
   );
 });

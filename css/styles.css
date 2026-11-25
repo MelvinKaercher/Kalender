@@ -126,7 +126,7 @@ input, select, textarea { font: inherit; color: inherit; }
 #tabbar {
   flex: none;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   padding: 6px 8px calc(6px + var(--sab));
   border-top: 1px solid var(--line);
   background: var(--bg);

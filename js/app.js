@@ -70,7 +70,7 @@ function renderHeader(today) {
   $('#btn-today').setAttribute('aria-label', unit === 'Jahr' ? 'Zum aktuellen Jahr' : `Zur aktuellen ${unit}`);
   $('#btn-add').setAttribute('aria-label', view === 'birthdays' ? 'Ereignis hinzufügen' : 'Termin hinzufügen');
   document.querySelectorAll('#tabbar button').forEach((b) => {
-    const active = b.dataset.view === view;
+    const active = b.dataset.view === (view === 'year' ? 'month' : view);
     b.classList.toggle('active', active);
     b.setAttribute('aria-current', active ? 'page' : 'false');
   });
