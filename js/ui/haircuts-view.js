@@ -2,6 +2,9 @@
 import { el, MONTHS, fmtDayShort } from './dom.js';
 import { statsForYear, earned, fmtEuro } from '../haircuts.js';
 import { fromKey } from '../calendar.js';
+import { openHaircutImport } from './haircut-import-sheet.js';
+
+const importRow = () => el('button', { class: 'hc-import', type: 'button', onclick: openHaircutImport, text: 'Frühere Haarschnitte importieren' });
 
 // aufgeklappter Monat bleibt beim Neuzeichnen (z. B. nach Bearbeiten) offen
 let openMonth = null;
@@ -20,7 +23,8 @@ export function renderHaircuts(root, { cursor, now, events, onEvent, onAddHaircu
         el('div', { class: 'big', text: '✂︎' }),
         el('div', { text: `Noch keine Haarschnitte in ${year}.` }),
         el('div', { text: 'Trage einen Termin mit dem Schalter „Haareschneiden“ ein – er wird orange und hier ausgewertet.' }),
-        el('button', { type: 'button', onclick: onAddHaircut, text: 'Haarschnitt eintragen' }))));
+        el('button', { type: 'button', onclick: onAddHaircut, text: 'Haarschnitt eintragen' })),
+      importRow()));
     return;
   }
 
@@ -60,5 +64,6 @@ export function renderHaircuts(root, { cursor, now, events, onEvent, onAddHaircu
       stat('Haarschnitte', String(total.count)),
       stat('Ø pro Schnitt', fmtEuro(total.avg))),
     total.planned ? el('div', { class: 'hc-planned', text: `Noch geplant: ${total.planned} · ${fmtEuro(total.plannedEarned)}` }) : null,
-    el('div', { class: 'hc-months' }, rows)));
+    el('div', { class: 'hc-months' }, rows),
+    importRow()));
 }

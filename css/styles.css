@@ -477,3 +477,7 @@ input, select, textarea { font: inherit; color: inherit; }
 [data-role=haircut-fields] input { flex: 1; min-width: 0; text-align: right; background: transparent; border: 0; font-size: 17px; color: var(--text); }
 .hc-month.empty { padding: 8px 0 9px; }
 .hc-month.empty .hc-name { font-size: 15px; font-weight: 500; }
+.hc-import { display: block; margin: 22px auto 0; padding: 10px 16px; color: var(--accent); font-size: 15px; font-weight: 600; border-radius: 12px; }
+.hc-import:active { background: var(--accent-soft); }
+.imp-status { padding: 6px 4px; font-size: 14px; color: var(--text-2); }
+.row.stack textarea { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
