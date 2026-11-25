@@ -23,6 +23,7 @@ const ASSETS = [
   'js/ui/sheet.js',
   'js/ui/forms.js',
   'js/ui/month.js',
+  'js/ui/year.js',
   'js/ui/week.js',
   'js/ui/birthdays-view.js',
   'js/ui/day-sheet.js',

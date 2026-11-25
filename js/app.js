@@ -4,6 +4,8 @@ import { el, clear, MONTHS, fmtDayShort } from './ui/dom.js';
 import { startOfDay, addDays, addMonths, isSameMonth, isSameDay, isoWeek, startOfWeek, weekDays, toKey } from './calendar.js';
 import { renderMonth } from './ui/month.js';
 import { renderWeek } from './ui/week.js';
+import { renderYear } from './ui/year.js';
+import { openDisplaySettings } from './ui/display-settings.js';
 import { renderBirthdays } from './ui/birthdays-view.js';
 import { openDaySheet } from './ui/day-sheet.js';
 import { openEventForm, openBirthdayForm } from './ui/forms.js';
@@ -15,7 +17,7 @@ import { openNotificationSettings } from './ui/settings.js';
 import { getDisplay } from './display.js';
 
 const $ = (sel) => document.querySelector(sel);
-const VIEWS = ['month', 'week', 'birthdays'];
+const VIEWS = ['month', 'week', 'year', 'birthdays'];
 
 function savedView() {
   try {
@@ -47,16 +49,25 @@ function renderHeader(today) {
       : `${fmtDayShort(first)} – ${fmtDayShort(last)}`;
     title.append(`KW ${isoWeek(cursor)}`, ' ', el('span', { class: 'sub small', text: range }));
     showToday = toKey(startOfWeek(cursor)) !== toKey(startOfWeek(today));
+  } else if (view === 'year') {
+    title.append(String(cursor.getFullYear()));
+    showToday = cursor.getFullYear() !== today.getFullYear();
   } else {
     title.append('Geburtstage');
   }
 
+  // Im Monat ist der Titel ein Knopf: Tipp = herauszoomen zur Jahresansicht
+  const zoomable = view === 'month';
+  title.classList.toggle('tappable', zoomable);
+  if (zoomable) { title.setAttribute('role', 'button'); title.setAttribute('aria-label', `${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}, Jahresansicht öffnen`); }
+  else { title.removeAttribute('role'); title.removeAttribute('aria-label'); }
+
   $('#nav').hidden = view === 'birthdays';
   $('#btn-today').hidden = !showToday;
-  const unit = view === 'week' ? 'Woche' : 'Monat';
-  $('#btn-prev').setAttribute('aria-label', view === 'week' ? 'Vorherige Woche' : 'Vorheriger Monat');
-  $('#btn-next').setAttribute('aria-label', view === 'week' ? 'Nächste Woche' : 'Nächster Monat');
-  $('#btn-today').setAttribute('aria-label', `Zur aktuellen ${unit}`);
+  const unit = { week: 'Woche', year: 'Jahr' }[view] || 'Monat';
+  $('#btn-prev').setAttribute('aria-label', { Monat: 'Vorheriger Monat', Woche: 'Vorherige Woche', Jahr: 'Vorheriges Jahr' }[unit]);
+  $('#btn-next').setAttribute('aria-label', { Monat: 'Nächster Monat', Woche: 'Nächste Woche', Jahr: 'Nächstes Jahr' }[unit]);
+  $('#btn-today').setAttribute('aria-label', unit === 'Jahr' ? 'Zum aktuellen Jahr' : `Zur aktuellen ${unit}`);
   $('#btn-add').setAttribute('aria-label', view === 'birthdays' ? 'Geburtstag hinzufügen' : 'Termin hinzufügen');
   document.querySelectorAll('#tabbar button').forEach((b) => {
     const active = b.dataset.view === view;
@@ -89,19 +100,33 @@ function render(anim = null) {
     onAdd: () => openBirthdayForm({}),
     pushStatus: push.status(),
     onNotifications: () => openNotificationSettings({ push, onChange: () => render() }),
+    onSettings: () => openDisplaySettings({ onChange: () => render() }),
+    onMonth: (year, month0) => openMonth(year, month0),
   };
   if (state.view === 'month') renderMonth(view, ctx);
   else if (state.view === 'week') renderWeek(view, ctx);
+  else if (state.view === 'year') renderYear(view, ctx);
   else renderBirthdays(view, ctx);
 }
 
 /* ───────── Navigation ───────── */
 
-function setView(view) {
+function setView(view, anim = 'fade') {
   if (view === state.view) return;
   state.view = view;
   try { localStorage.setItem('kalender.view', view); } catch { /* optional */ }
-  render('fade');
+  render(anim);
+}
+
+/** Herauszoomen: vom Monat zur Jahresansicht. */
+const zoomOut = () => state.view === 'month' && setView('year', 'zoom-out');
+
+/** Hineinzoomen: einen Monat aus der Jahresansicht öffnen. */
+function openMonth(year, month0) {
+  const today = startOfDay(new Date());
+  const target = new Date(year, month0, 1);
+  state.cursor = isSameMonth(target, today) ? today : target;
+  setView('month', 'zoom-in');
 }
 
 /** delta: +1 = vor, -1 = zurück (Monat bzw. Woche) */
@@ -111,6 +136,9 @@ function go(delta) {
   if (state.view === 'month') {
     const target = addMonths(state.cursor, delta);
     state.cursor = isSameMonth(target, today) ? today : target;
+  } else if (state.view === 'year') {
+    const target = new Date(state.cursor.getFullYear() + delta, 0, 1);
+    state.cursor = target.getFullYear() === today.getFullYear() ? today : target;
   } else {
     state.cursor = addDays(state.cursor, 7 * delta);
   }
@@ -132,6 +160,10 @@ function addForCurrentView() {
     const inWeek = weekDays(state.cursor).some((d) => isSameDay(d, today));
     return openEventForm({ date: inWeek ? today : startOfWeek(state.cursor) });
   }
+  if (state.view === 'year') {
+    const inYear = state.cursor.getFullYear() === today.getFullYear();
+    return openEventForm({ date: inYear ? today : state.cursor });
+  }
   openEventForm({ date: state.cursor });
 }
 
@@ -145,25 +177,63 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowRight') go(1);
 });
 $('#btn-add').addEventListener('click', addForCurrentView);
+$('#title').addEventListener('click', zoomOut);
 document.querySelectorAll('#tabbar button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 
-// Wischen: links = vor, rechts = zurück
+// Wischen: links = vor, rechts = zurück. Zwei Finger: zusammenziehen = herauszoomen (Monat → Jahr),
+// auseinanderziehen = hineinzoomen (Jahr → Monat unter den Fingern).
 (() => {
   const view = $('#view');
   let x0 = 0, y0 = 0, t0 = 0, tracking = false;
+  let pinch = null; // { dist, cx, cy, ratio }
+  const spread = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  const center = (t) => ({ cx: (t[0].clientX + t[1].clientX) / 2, cy: (t[0].clientY + t[1].clientY) / 2 });
+
+  // iOS würde sonst die ganze Seite zoomen
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+  document.addEventListener('gesturechange', (e) => e.preventDefault());
+
   view.addEventListener('touchstart', (e) => {
-    if (e.touches.length !== 1) { tracking = false; return; }
+    if (e.touches.length === 2) {
+      tracking = false;
+      pinch = { dist: spread(e.touches), ...center(e.touches), ratio: 1 };
+      return;
+    }
+    if (e.touches.length !== 1 || pinch) { tracking = false; return; }
     ({ clientX: x0, clientY: y0 } = e.touches[0]);
     t0 = Date.now();
     tracking = true;
   }, { passive: true });
+
+  view.addEventListener('touchmove', (e) => {
+    if (!pinch || e.touches.length !== 2) return;
+    e.preventDefault();
+    pinch.ratio = spread(e.touches) / pinch.dist;
+  }, { passive: false });
+
   view.addEventListener('touchend', (e) => {
+    if (pinch) {
+      if (e.touches.length === 0) {
+        const { ratio, cx, cy } = pinch;
+        pinch = null;
+        if (state.view === 'month' && ratio < 0.78) zoomOut();
+        else if (state.view === 'year' && ratio > 1.3) {
+          const mini = document.elementFromPoint(cx, cy)?.closest?.('[data-month]');
+          const today = startOfDay(new Date());
+          if (mini) openMonth(Number(mini.dataset.year), Number(mini.dataset.month));
+          else openMonth(state.cursor.getFullYear(), state.cursor.getFullYear() === today.getFullYear() ? today.getMonth() : 0);
+        }
+      }
+      return;
+    }
     if (!tracking) return;
     tracking = false;
     const dx = e.changedTouches[0].clientX - x0;
     const dy = e.changedTouches[0].clientY - y0;
     if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6 && Date.now() - t0 < 700) go(dx < 0 ? 1 : -1);
   }, { passive: true });
+
+  view.addEventListener('touchcancel', () => { pinch = null; tracking = false; }, { passive: true });
 })();
 
 /* ───────── Erinnerungen ───────── */

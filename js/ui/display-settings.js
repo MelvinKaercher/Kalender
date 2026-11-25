@@ -13,7 +13,7 @@ export function openDisplaySettings({ onChange = () => {} } = {}) {
       onChange();
     });
     return el('label', { class: 'row' },
-      el('span', {}, el('div', { text: label }), el('div', { class: 'row-hint', text: hint })),
+      el('span', { class: 'grow' }, el('div', { text: label }), el('div', { class: 'row-hint', text: hint })),
       input);
   };
 
