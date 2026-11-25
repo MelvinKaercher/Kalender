@@ -4,7 +4,7 @@ import { weekDays, isSameDay, toKey, toMinutes, fromMinutes } from '../calendar.
 import { itemsForDay } from '../items.js';
 import { colorStyle } from '../colors.js';
 import { typeInfo } from '../birthdays.js';
-import { attachDrag, clickSuppressed } from './week-drag.js';
+import { attachDrag, attachSlotHold, clickSuppressed } from './week-drag.js';
 
 const HOUR = 52; // px pro Stunde – muss zu --hour in styles.css passen
 const MIN_BLOCK_MIN = 30; // kürzere Termine werden mindestens so hoch gezeichnet
@@ -99,8 +99,12 @@ export function renderWeek(root, { cursor, today, now, events, birthdays, displa
       const mins = now.getHours() * 60 + now.getMinutes();
       col.append(el('div', { class: 'now-line', style: `top:${(mins / 60) * HOUR}px` }));
     }
-    // Freien Slot antippen => neuer Termin zu dieser Uhrzeit
+    // Lange auf einen freien Slot drücken => neuer Termin zu dieser Uhrzeit (wie Apple). Kurzes Antippen tut nichts;
+    // nur die Maus (Rechner) legt weiterhin per Klick an.
+    attachSlotHold(col, { hourPx: HOUR, onCreate: (m) => onNewEvent(d, fromMinutes(m)) });
     col.addEventListener('click', (e) => {
+      if (e.pointerType && e.pointerType !== 'mouse') return;
+      if (clickSuppressed()) return;
       const y = e.clientY - col.getBoundingClientRect().top;
       const minutes = Math.min(23 * 60, Math.floor(((y / HOUR) * 60) / SNAP) * SNAP);
       onNewEvent(d, fromMinutes(minutes));

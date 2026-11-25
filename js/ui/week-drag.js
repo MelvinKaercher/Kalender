@@ -3,9 +3,10 @@
 // Normales Wischen scrollt weiter, kurzes Antippen öffnet das Bearbeiten.
 import { WEEKDAYS } from './dom.js';
 import { fromKey, fromMinutes } from '../calendar.js';
-import { columnFromX, movedStart, yToMinutes, moveChanges, durationOf, isMove } from '../drag-math.js';
+import { columnFromX, movedStart, yToMinutes, moveChanges, durationOf, isMove, SNAP } from '../drag-math.js';
 
 const HOLD_MS = 380; // so lange drücken, bis der Termin "abhebt"
+const SLOT_HOLD_MS = 450; // so lange auf ein freies Feld drücken, bis "Neuer Termin" kommt
 const TOLERANCE = 10; // px: bewegt sich der Finger vorher, ist es ein Scrollen
 const EDGE = 44; // px vom Rand des Rasters, ab dem automatisch gescrollt wird
 
@@ -146,4 +147,76 @@ export function attachDrag(block, { ev, hourPx, geometry, onDrop }) {
 
   // Langer Druck soll kein Kontextmenü/keine Textauswahl öffnen
   block.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
+/**
+ * Lange auf ein freies Feld drücken (wie im Apple-Kalender): Während des Haltens zeigt ein Streifen die Uhrzeit,
+ * beim Loslassen wird `onCreate(minuten)` aufgerufen. Bewegt sich der Finger vorher, ist es Scrollen.
+ * @param {HTMLElement} col   Tages-Spalte (Raster, Höhe 24 h)
+ * @param {{hourPx:number, onCreate:(minutes:number)=>void}} o
+ */
+export function attachSlotHold(col, { hourPx, onCreate }) {
+  let timer = null;
+  let armed = false;
+  let touchId = null;
+  let sx = 0, sy = 0;
+  let strip = null;
+  let minutes = 0;
+
+  const minutesAt = (clientY) => {
+    const y = clientY - col.getBoundingClientRect().top;
+    return Math.min(23 * 60, Math.max(0, Math.floor(yToMinutes(y, hourPx) / SNAP) * SNAP));
+  };
+
+  function cleanup() {
+    clearTimeout(timer);
+    timer = null;
+    armed = false;
+    strip?.remove();
+    strip = null;
+  }
+
+  col.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1 || armed || e.target.closest?.('.block')) { cleanup(); return; }
+    const t = e.touches[0];
+    touchId = t.identifier;
+    sx = t.clientX;
+    sy = t.clientY;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      armed = true;
+      minutes = minutesAt(sy);
+      strip = document.createElement('div');
+      strip.className = 'slot-hold';
+      strip.style.top = `${(minutes / 60) * hourPx}px`;
+      strip.style.height = `${hourPx}px`;
+      strip.innerHTML = '<span></span>';
+      strip.firstChild.textContent = fromMinutes(minutes);
+      col.append(strip);
+      navigator.vibrate?.(10); // Android; iOS ignoriert das
+    }, SLOT_HOLD_MS);
+  }, { passive: true });
+
+  col.addEventListener('touchmove', (e) => {
+    const t = [...e.touches].find((x) => x.identifier === touchId);
+    if (!t) return;
+    if (!armed) {
+      if (timer && Math.hypot(t.clientX - sx, t.clientY - sy) > TOLERANCE) { clearTimeout(timer); timer = null; }
+      return;
+    }
+    e.preventDefault(); // beim Halten nicht scrollen
+  }, { passive: false });
+
+  col.addEventListener('touchend', (e) => {
+    const wasArmed = armed;
+    cleanup();
+    if (!wasArmed) return;
+    e.preventDefault(); // kein nachfolgendes "Antippen"
+    e.stopPropagation(); // und kein Wisch-Blättern der Ansicht
+    suppressUntil = performance.now() + 350;
+    onCreate(minutes);
+  }, { passive: false });
+
+  col.addEventListener('touchcancel', cleanup, { passive: true });
 }
