@@ -98,6 +98,8 @@ function render(anim = null) {
     birthdays: store.birthdays(),
     display: getDisplay(),
     onDay: (date) => openDaySheet(date),
+    // Monat: Tipp auf einen Tag öffnet die Woche dieses Tages (dort per Halten auf die Uhrzeit eintragen)
+    onPickDay: (date) => { state.cursor = date; setView('week', 'zoom-in'); },
     onEvent: (event) => openEventForm({ event }),
     onBirthday: (birthday) => openBirthdayForm({ birthday }),
     onNewEvent: (date, start) => openEventForm({ date, start }),

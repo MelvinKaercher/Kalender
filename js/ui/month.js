@@ -82,12 +82,12 @@ function upcomingList(list, onEvent, onBirthday) {
     ));
 }
 
-export function renderMonth(root, { cursor, today, now, events, birthdays, display, onDay, onEvent, onBirthday }) {
+export function renderMonth(root, { cursor, today, now, events, birthdays, display, onPickDay, onEvent, onBirthday }) {
   const weeks = monthGrid(cursor.getFullYear(), cursor.getMonth());
   root.append(
     el('div', { class: 'month' },
       el('div', { class: 'weekdays', 'aria-hidden': 'true' }, WEEKDAYS.map((d) => el('span', { text: d }))),
-      el('div', { class: 'grid', role: 'grid', style: `--rows:${weeks.length}` }, weeks.flat().map((c) => cell(c, today, events, birthdays, display, onDay))),
+      el('div', { class: 'grid', role: 'grid', style: `--rows:${weeks.length}` }, weeks.flat().map((c) => cell(c, today, events, birthdays, display, onPickDay))),
       upcomingList(upcoming(events, birthdays, now), onEvent, onBirthday)
     )
   );

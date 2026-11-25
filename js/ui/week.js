@@ -53,6 +53,7 @@ export function renderWeek(root, { cursor, today, now, events, birthdays, displa
     el('span'),
     days.map((d, i) =>
       el('button', {
+        'data-key': toKey(d),
         class: `d${isSameDay(d, today) ? ' today' : ''}${display.vacations && data[i].vacations.length ? ' vac' : ''}`, type: 'button',
         'aria-label': d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }),
         onclick: () => onDay(d),
