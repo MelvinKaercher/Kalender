@@ -1,7 +1,7 @@
 // Service Worker: macht die App offline-fähig.
 // Strategie "stale-while-revalidate": sofort aus dem Cache, im Hintergrund aktualisieren.
 // Bei größeren Änderungen CACHE-Version erhöhen, damit alte Dateien verschwinden.
-const CACHE = 'kalender-v3';
+const CACHE = 'kalender-v4';
 const ASSETS = [
   './',
   'index.html',
@@ -13,6 +13,9 @@ const ASSETS = [
   'js/birthdays.js',
   'js/items.js',
   'js/colors.js',
+  'js/holidays.js',
+  'js/school-holidays.js',
+  'js/display.js',
   'js/push.js',
   'js/config.js',
   'js/reminders.js',
@@ -25,6 +28,7 @@ const ASSETS = [
   'js/ui/day-sheet.js',
   'js/ui/banner.js',
   'js/ui/settings.js',
+  'js/ui/display-settings.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/apple-touch-icon.png',

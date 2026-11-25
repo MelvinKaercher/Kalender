@@ -1,14 +1,26 @@
 // Tages-Sheet: alles an einem Tag. Antippen bearbeitet, "+" legt neu an.
-import { el, fmtDayLong, fmtRange } from './dom.js';
+import { el, fmtDayLong, fmtRange, fmtDayShort } from './dom.js';
 import { openSheet, closeSheet } from './sheet.js';
 import { itemsForDay } from '../items.js';
 import * as store from '../store.js';
 import { openEventForm, openBirthdayForm } from './forms.js';
 import { colorStyle } from '../colors.js';
+import { getDisplay } from '../display.js';
+import { fromKey } from '../calendar.js';
 
 export function openDaySheet(date) {
-  const { events, birthdays } = itemsForDay(store.events(), store.birthdays(), date);
+  const { events, birthdays, holidays, vacations } = itemsForDay(store.events(), store.birthdays(), date);
+  const display = getDisplay();
+  const info = (cls, when, name, note) =>
+    el('div', { class: `day-row ${cls}` },
+      el('span', { class: 'when', text: when }),
+      el('span', { class: 'what' },
+        el('div', { class: 'name', text: name }),
+        note ? el('div', { class: 'note', text: note }) : null));
   const rows = [
+    ...(display.holidays ? holidays.map((h) => info('holiday', 'Feiertag', h.name)) : []),
+    ...(display.vacations ? vacations.map((v) => info('vac', v.kind === 'frei' ? 'Schule' : 'Schulferien', v.name,
+      v.start === v.end ? null : `${fmtDayShort(fromKey(v.start))} – ${fmtDayShort(fromKey(v.end))}`)) : []),
     ...birthdays.map(({ birthday, age }) =>
       el('button', { class: 'day-row bday', type: 'button', onclick: () => openBirthdayForm({ birthday }) },
         el('span', { class: 'when', text: 'Geburtstag' }),

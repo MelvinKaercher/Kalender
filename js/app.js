@@ -12,6 +12,7 @@ import { dueReminders } from './reminders.js';
 import config from './config.js';
 import { createPush } from './push.js';
 import { openNotificationSettings } from './ui/settings.js';
+import { getDisplay } from './display.js';
 
 const $ = (sel) => document.querySelector(sel);
 const VIEWS = ['month', 'week', 'birthdays'];
@@ -80,6 +81,7 @@ function render(anim = null) {
     now,
     events: store.events(),
     birthdays: store.birthdays(),
+    display: getDisplay(),
     onDay: (date) => openDaySheet(date),
     onEvent: (event) => openEventForm({ event }),
     onBirthday: (birthday) => openBirthdayForm({ birthday }),

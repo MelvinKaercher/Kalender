@@ -8,11 +8,14 @@ import { colorStyle } from '../colors.js';
 const UPCOMING_LIMIT = 3;
 const UPCOMING_DAYS = 60;
 
-function cell(c, today, events, birthdays, onDay) {
+function cell(c, today, events, birthdays, display, onDay) {
   const items = itemsForDay(events, birthdays, c.date);
   const nEvents = items.events.length;
   const nBdays = items.birthdays.length;
+  const holiday = display.holidays ? items.holidays[0] : null;
+  const vacation = display.vacations ? items.vacations[0] : null;
   const dots = [
+    ...(holiday ? [el('i', { class: 'dot holiday' })] : []),
     ...items.events.slice(0, 2).map((ev) => el('i', { class: 'dot', style: colorStyle(ev.color) })),
     ...(nBdays ? [el('i', { class: 'dot bday' })] : []),
   ];
@@ -20,9 +23,11 @@ function cell(c, today, events, birthdays, onDay) {
     c.date.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }),
     nEvents ? `${nEvents} ${nEvents === 1 ? 'Termin' : 'Termine'}` : null,
     nBdays ? `${nBdays} ${nBdays === 1 ? 'Geburtstag' : 'Geburtstage'}` : null,
+    holiday ? `Feiertag: ${holiday.name}` : null,
+    vacation ? vacation.name : null,
   ].filter(Boolean).join(', ');
   return el('button', {
-    class: `cell${c.inMonth ? '' : ' out'}${isSameDay(c.date, today) ? ' today' : ''}`,
+    class: `cell${c.inMonth ? '' : ' out'}${isSameDay(c.date, today) ? ' today' : ''}${holiday ? ' holiday' : ''}${vacation ? ' vac' : ''}`,
     type: 'button',
     'aria-label': label,
     'data-key': c.key,
@@ -64,12 +69,12 @@ function upcomingList(list, onEvent, onBirthday) {
     ));
 }
 
-export function renderMonth(root, { cursor, today, now, events, birthdays, onDay, onEvent, onBirthday }) {
+export function renderMonth(root, { cursor, today, now, events, birthdays, display, onDay, onEvent, onBirthday }) {
   const weeks = monthGrid(cursor.getFullYear(), cursor.getMonth());
   root.append(
     el('div', { class: 'month' },
       el('div', { class: 'weekdays', 'aria-hidden': 'true' }, WEEKDAYS.map((d) => el('span', { text: d }))),
-      el('div', { class: 'grid', role: 'grid', style: `--rows:${weeks.length}` }, weeks.flat().map((c) => cell(c, today, events, birthdays, onDay))),
+      el('div', { class: 'grid', role: 'grid', style: `--rows:${weeks.length}` }, weeks.flat().map((c) => cell(c, today, events, birthdays, display, onDay))),
       upcomingList(upcoming(events, birthdays, now), onEvent, onBirthday)
     )
   );

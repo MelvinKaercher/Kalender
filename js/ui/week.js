@@ -43,7 +43,7 @@ export function layoutDay(events) {
   return out;
 }
 
-export function renderWeek(root, { cursor, today, now, events, birthdays, onDay, onEvent, onBirthday, onNewEvent }) {
+export function renderWeek(root, { cursor, today, now, events, birthdays, display, onDay, onEvent, onBirthday, onNewEvent }) {
   const days = weekDays(cursor);
   const data = days.map((d) => itemsForDay(events, birthdays, d));
 
@@ -51,7 +51,7 @@ export function renderWeek(root, { cursor, today, now, events, birthdays, onDay,
     el('span'),
     days.map((d, i) =>
       el('button', {
-        class: `d${isSameDay(d, today) ? ' today' : ''}`, type: 'button',
+        class: `d${isSameDay(d, today) ? ' today' : ''}${display.vacations && data[i].vacations.length ? ' vac' : ''}`, type: 'button',
         'aria-label': d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }),
         onclick: () => onDay(d),
       }, el('span', { class: 'wd', text: WEEKDAYS[i] }), el('span', { class: 'dn', text: String(d.getDate()) }))
@@ -59,12 +59,14 @@ export function renderWeek(root, { cursor, today, now, events, birthdays, onDay,
   );
 
   // Ganztägige Termine + Geburtstage
-  const hasAllDay = data.some((x) => x.birthdays.length || x.events.some((e) => e.allDay));
+  const holidayOf = (x) => (display.holidays ? x.holidays[0] : null);
+  const hasAllDay = data.some((x) => holidayOf(x) || x.birthdays.length || x.events.some((e) => e.allDay));
   const allDay = hasAllDay
     ? el('div', { class: 'w-allday' },
         el('span', { class: 'gutter', text: 'ganzt.' }),
         data.map((x) =>
           el('div', { class: 'ad' },
+            holidayOf(x) ? el('span', { class: 'chip holiday', title: holidayOf(x).name }, holidayOf(x).name) : null,
             x.birthdays.map(({ birthday }) =>
               el('button', { class: 'chip bday', type: 'button', onclick: () => onBirthday(birthday) }, `🎂 ${birthday.name}`)),
             x.events.filter((e) => e.allDay).map((e) =>
