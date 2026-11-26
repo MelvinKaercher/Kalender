@@ -107,6 +107,13 @@ input, select, textarea { font: inherit; color: inherit; }
   transition: transform .12s;
 }
 .round-btn:active { transform: scale(.92); }
+.voice-text { font-family: inherit; width: 100%; min-height: 84px; font-size: 17px; line-height: 1.4; resize: none; }
+.voice-mic { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 14px; padding: 14px; border-radius: 14px; font-weight: 600; font-size: 16px; color: var(--accent); background: var(--accent-soft); }
+.voice-mic.rec { color: #fff; background: #e5484d; animation: voice-pulse 1.1s ease-in-out infinite; }
+@keyframes voice-pulse { 50% { opacity: .65; } }
+.voice-preview { margin: 14px 4px 0; padding: 12px 14px; border-radius: 12px; background: var(--bg-soft); font-weight: 600; min-height: 22px; }
+.voice-preview.empty { color: var(--text-2); font-weight: 400; }
+.voice-hint { margin: 12px 4px 0; font-size: 13px; color: var(--text-2); line-height: 1.4; }
 
 /* ───────── Ansicht ───────── */
 #view { flex: 1; min-height: 0; position: relative; overflow: hidden; touch-action: pan-y; }

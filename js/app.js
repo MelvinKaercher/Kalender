@@ -18,6 +18,7 @@ import { createSync } from './sync.js';
 import { openSyncSettings } from './ui/sync-settings.js';
 import { openNotificationSettings } from './ui/settings.js';
 import { getDisplay } from './display.js';
+import { openVoiceSheet } from './ui/voice-sheet.js';
 
 const $ = (sel) => document.querySelector(sel);
 const VIEWS = ['month', 'week', 'year', 'haircuts', 'birthdays'];
@@ -218,6 +219,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowRight') go(1);
 });
 $('#btn-add').addEventListener('click', addForCurrentView);
+$('#btn-voice').addEventListener('click', () => openVoiceSheet());
 $('#title').addEventListener('click', zoomOut);
 document.querySelectorAll('#tabbar button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 

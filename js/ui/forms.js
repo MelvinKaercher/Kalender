@@ -40,7 +40,7 @@ function shake(node) {
 
 /* ───────── Termin ───────── */
 
-export function openEventForm({ event = null, date = new Date(), start = '09:00', haircut = false } = {}) {
+export function openEventForm({ event = null, date = new Date(), start = '09:00', haircut = false, prefill = null } = {}) {
   if (event && event.vacation) return openVacationForm({ event });
   const isNew = !event;
   const startMin = toMinutes(start);
@@ -49,6 +49,7 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
     : {
         id: null, title: '', date: toKey(date), allDay: false,
         start, end: fromMinutes(startMin + 60), note: '', remind: null,
+        ...(prefill || {}),
       };
   if (!d.start) { d.start = '09:00'; d.end = '10:00'; } // ganztägige Termine behalten Zeiten für den Umschalter
 
@@ -231,11 +232,11 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
 export const VACATION_COLOR = '#12a594';
 export const VACATION_TITLE = 'Urlaub';
 
-export function openVacationForm({ event = null, date = new Date() } = {}) {
+export function openVacationForm({ event = null, date = new Date(), prefill = null } = {}) {
   const isNew = !event;
-  const from0 = event ? event.date : toKey(date);
-  const to0 = event ? event.endDate || event.date : from0;
-  const name = el('input', { type: 'text', class: 'title', placeholder: VACATION_TITLE, value: event ? event.title : '', maxlength: '120', autocomplete: 'off', enterkeyhint: 'done' });
+  const from0 = event ? event.date : (prefill && prefill.date) || toKey(date);
+  const to0 = event ? event.endDate || event.date : (prefill && prefill.endDate) || from0;
+  const name = el('input', { type: 'text', class: 'title', placeholder: VACATION_TITLE, value: event ? event.title : (prefill && prefill.title !== 'Urlaub' && prefill.title) || '', maxlength: '120', autocomplete: 'off', enterkeyhint: 'done' });
   const fromIn = el('input', { type: 'date', value: from0, required: true, 'aria-label': 'Von' });
   const toIn = el('input', { type: 'date', value: to0, min: from0, required: true, 'aria-label': 'Bis' });
   const error = el('div', { class: 'form-error', role: 'alert' });
