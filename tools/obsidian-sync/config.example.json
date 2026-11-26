@@ -1,0 +1,8 @@
+{
+  "workerUrl": "HIER die Adresse deines Servers (steht in der App unter Ereignisse → Abgleich bzw. in js/config.js)",
+  "token": "HIER dein Zugangscode",
+  "password": "HIER dein Abgleich-Passwort",
+  "vaultFolder": "C:\\Users\\DEINNAME\\Documents\\MeinVault\\Kalender",
+  "includeHaircuts": true,
+  "intervalMinutes": 15
+}
