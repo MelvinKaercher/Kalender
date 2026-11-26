@@ -1,7 +1,7 @@
 // Service Worker: macht die App offline-fähig.
 // Strategie "Netz zuerst": neue Versionen erscheinen sofort; ohne Netz (oder bei langsamem Netz) kommt der Cache.
 // Bei größeren Änderungen CACHE-Version erhöhen, damit alte Dateien verschwinden.
-const CACHE = 'kalender-v21';
+const CACHE = 'kalender-v22';
 const ASSETS = [
   './',
   'index.html',
@@ -32,6 +32,7 @@ const ASSETS = [
   'js/drag-math.js',
   'js/ui/birthdays-view.js',
   'js/ui/haircuts-view.js',
+  'js/ui/customer-sheet.js',
   'js/haircuts.js',
   'js/haircut-import.js',
   'js/ui/haircut-import-sheet.js',

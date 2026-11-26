@@ -7,7 +7,7 @@ import { REMIND_OPTIONS } from '../reminders.js';
 import { EVENT_TYPES, typeOf } from '../birthdays.js';
 import { PALETTE, colorStyle, normalizeHex } from '../colors.js';
 import { showToast } from './toast.js';
-import { HAIRCUT_COLOR, HAIRCUT_TITLE, parseEuro } from '../haircuts.js';
+import { HAIRCUT_COLOR, HAIRCUT_TITLE, parseEuro, lastPrices, customerKey } from '../haircuts.js';
 
 const barBtn = (label, onclick, strong = false) =>
   el('button', { class: `bar-btn${strong ? ' strong' : ''}`, type: 'button', onclick, text: label });
@@ -70,7 +70,20 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
   const customerIn = el('input', { type: 'text', placeholder: 'Kunde (optional)', value: hcData.customer || '', maxlength: '80', autocomplete: 'off' });
   const priceIn = el('input', { type: 'text', inputmode: 'decimal', placeholder: '0,00', value: euroValue(hcData.price), 'aria-label': 'Preis in Euro', autocomplete: 'off' });
   const tipIn = el('input', { type: 'text', inputmode: 'decimal', placeholder: '0,00', value: euroValue(hcData.tip), 'aria-label': 'Trinkgeld in Euro', autocomplete: 'off' });
-  const hcGroup = el('div', { class: 'group', 'data-role': 'haircut-fields' },
+  // Bekannte Kunden vorschlagen; Preis wird vom letzten Besuch übernommen, solange das Feld leer ist
+  const known = new Map();
+  for (const e of store.events()) if (e.haircut && e.haircut.customer) known.set(customerKey(e.haircut.customer), e.haircut.customer.trim());
+  const priceMemory = lastPrices(store.events());
+  const listId = `kunden-${Math.random().toString(36).slice(2, 7)}`;
+  customerIn.setAttribute('list', listId);
+  const customerList = el('datalist', { id: listId }, [...known.values()].sort((a, b) => a.localeCompare(b, 'de')).map((n) => el('option', { value: n })));
+  const fillPrice = () => {
+    const p = priceMemory.get(customerKey(customerIn.value));
+    if (p !== undefined && priceIn.value.trim() === '') priceIn.value = euroValue(p);
+  };
+  customerIn.addEventListener('change', fillPrice);
+  customerIn.addEventListener('blur', fillPrice);
+  const hcGroup = el('div', { class: 'group', 'data-role': 'haircut-fields' }, customerList,
     el('label', { class: 'row' }, el('span', { text: 'Kunde' }), customerIn),
     el('label', { class: 'row' }, el('span', { text: 'Preis (€)' }), priceIn),
     el('label', { class: 'row' }, el('span', { text: 'Trinkgeld (€)' }), tipIn));

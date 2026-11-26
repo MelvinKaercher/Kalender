@@ -1,6 +1,7 @@
 // Übersicht "Haare": Verdienst und Anzahl der Haarschnitte pro Monat, Jahressumme, Einzelliste je Monat.
 import { el, MONTHS, fmtDayShort } from './dom.js';
-import { statsForYear, earned, fmtEuro } from '../haircuts.js';
+import { statsForYear, earned, fmtEuro, customerStats } from '../haircuts.js';
+import { openCustomerSheet } from './customer-sheet.js';
 import { fromKey } from '../calendar.js';
 import { openHaircutImport } from './haircut-import-sheet.js';
 
@@ -8,17 +9,50 @@ const importRow = () => el('button', { class: 'hc-import', type: 'button', oncli
 
 // aufgeklappter Monat bleibt beim Neuzeichnen (z. B. nach Bearbeiten) offen
 let openMonth = null;
+let mode = 'months'; // 'months' | 'customers'
 
 const stat = (label, value) =>
   el('div', { class: 'hc-stat' }, el('div', { class: 'hc-val', text: value }), el('div', { class: 'hc-lab', text: label }));
 
-export function renderHaircuts(root, { cursor, now, events, onEvent, onAddHaircut }) {
+function modeSwitch(root, ctx) {
+  const btn = (key, label) => el('button', {
+    class: `seg-btn${mode === key ? ' on' : ''}`, type: 'button', role: 'radio', 'aria-checked': String(mode === key),
+    onclick: () => { mode = key; root.replaceChildren(); renderHaircuts(root, ctx); },
+  }, label);
+  return el('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Ansicht' }, btn('months', 'Monate'), btn('customers', 'Kunden'));
+}
+
+function renderCustomers(root, ctx) {
+  const { now, events } = ctx;
+  const list = customerStats(events, now);
+  const totalEarned = list.reduce((t, c) => t + c.earned, 0);
+  const named = list.filter((c) => c.visits || c.planned);
+  root.append(el('div', { class: 'hc' },
+    modeSwitch(root, ctx),
+    el('div', { class: 'hc-summary' },
+      stat('Kunden', String(named.length)),
+      stat('Bezahlt gesamt', fmtEuro(totalEarned)),
+      stat('Besuche', String(list.reduce((t, c) => t + c.visits, 0)))),
+    named.length ? el('div', { class: 'cust-list' }, named.map((c, i) =>
+      el('button', { class: 'cust-row', type: 'button', onclick: () => openCustomerSheet(c, now) },
+        el('span', { class: 'cust-rank', text: String(i + 1) }),
+        el('span', { class: 'cust-name' },
+          el('div', { text: c.name }),
+          el('div', { class: 'cust-sub', text: `${c.visits}× da${c.planned ? ` · ${c.planned} geplant` : ''}${c.avg ? ` · Ø ${fmtEuro(c.avg)}` : ''}` })),
+        el('span', { class: 'hc-money', text: c.visits ? fmtEuro(c.earned) : '–' }))))
+      : el('div', { class: 'empty' }, el('div', { text: 'Noch keine Kunden.' }), el('div', { text: 'Trage Haarschnitte mit einem Kundennamen ein.' }))));
+}
+
+export function renderHaircuts(root, ctx) {
+  if (mode === 'customers') return renderCustomers(root, ctx);
+  const { cursor, now, events, onEvent, onAddHaircut } = ctx;
   const year = cursor.getFullYear();
   const { months, total } = statsForYear(events, year, now);
   const any = total.count + total.planned > 0;
 
   if (!any) {
     root.append(el('div', { class: 'hc' },
+      modeSwitch(root, ctx),
       el('div', { class: 'empty' },
         el('div', { class: 'big', text: '✂︎' }),
         el('div', { text: `Noch keine Haarschnitte in ${year}.` }),
@@ -55,10 +89,11 @@ export function renderHaircuts(root, { cursor, now, events, onEvent, onAddHaircu
   function rerender() {
     const parent = root;
     parent.replaceChildren();
-    renderHaircuts(parent, { cursor, now, events, onEvent, onAddHaircut });
+    renderHaircuts(parent, ctx);
   }
 
   root.append(el('div', { class: 'hc' },
+    modeSwitch(root, ctx),
     el('div', { class: 'hc-summary' },
       stat('Verdient', fmtEuro(total.earned)),
       stat('Haarschnitte', String(total.count)),

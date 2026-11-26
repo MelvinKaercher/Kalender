@@ -74,3 +74,22 @@ test('Leeres Jahr: alles 0, kein Teilen durch 0', () => {
   assert.deepEqual(total, { count: 0, earned: 0, planned: 0, plannedEarned: 0, avg: 0 });
   assert.ok(months.every((m) => m.avg === 0));
 });
+
+import { customerStats, lastPrices } from '../js/haircuts.js';
+
+test('customerStats: Besuche, Zahlung, Monate, Abstand, geplant', () => {
+  const now = new Date(2026, 10, 26, 12);
+  const hc = (id, date, customer, price, tip = 0) => ({ id, title: 'H', date, allDay: true, haircut: { customer, price, tip } });
+  const ev = [
+    hc('1', '2026-09-01', 'Salim', 15), hc('2', '2026-09-20', 'salim ', 15, 2), hc('3', '2026-10-11', 'Salim', 15),
+    hc('4', '2026-12-01', 'Salim', 15), hc('5', '2026-10-05', 'Max', 10), hc('6', '2026-10-06', '', 5),
+  ];
+  const [a, b, c] = customerStats(ev, now);
+  assert.equal(a.name, 'Salim');
+  assert.deepEqual([a.visits, a.planned, a.earned, a.price, a.tip, a.avg], [3, 1, 47, 45, 2, 15.67]);
+  assert.deepEqual([a.first, a.last, a.nextPlanned, a.avgGapDays, a.lastPrice], ['2026-09-01', '2026-10-11', '2026-12-01', 20, 15]);
+  assert.deepEqual(a.months.map((m) => [m.ym, m.count, m.earned]), [['2026-10', 1, 15], ['2026-09', 2, 32]]);
+  assert.equal(b.name, 'Max');
+  assert.equal(c.name, 'Ohne Namen');
+  assert.equal(lastPrices(ev).get('salim'), 15);
+});
