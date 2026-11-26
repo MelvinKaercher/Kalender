@@ -7,7 +7,6 @@ import { REMIND_OPTIONS } from '../reminders.js';
 import { EVENT_TYPES, typeOf } from '../birthdays.js';
 import { PALETTE, colorStyle, normalizeHex } from '../colors.js';
 import { showToast } from './toast.js';
-import { findOverlaps } from '../overlap.js';
 import { HAIRCUT_COLOR, HAIRCUT_TITLE, parseEuro } from '../haircuts.js';
 
 const barBtn = (label, onclick, strong = false) =>
@@ -161,7 +160,6 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
   hcSwitch.addEventListener('change', syncHaircut);
   syncHaircut();
 
-  let warnedFor = null; // Zeit, für die die Überschneidung schon angezeigt wurde
   async function save() {
     let name = title.value.trim();
     let hc;
@@ -200,14 +198,6 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
       color: hc ? HAIRCUT_COLOR : color,
       haircut: hc || undefined,
     };
-    // Überschneidung: erst warnen, beim zweiten Tippen trotzdem speichern
-    const overlaps = findOverlaps(store.events(), candidate);
-    const sig = overlaps.length ? `${candidate.date}|${candidate.start}|${candidate.end}` : '';
-    if (overlaps.length && warnedFor !== sig) {
-      warnedFor = sig;
-      error.textContent = `Überschneidet sich mit: ${overlaps.map((o) => `${o.start} ${o.title}`).join(', ')}. Tippe noch einmal, um trotzdem zu speichern.`;
-      return;
-    }
     await store.saveEvent(candidate);
     sheet.close();
   }

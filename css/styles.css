@@ -291,6 +291,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .empty button:active { background: var(--accent-soft); }
 
 /* ───────── Sheet ───────── */
+html, body { touch-action: manipulation; }
 #overlay { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
 .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.38); opacity: 0; transition: opacity .25s; pointer-events: auto; }
 .backdrop.open { opacity: 1; }
