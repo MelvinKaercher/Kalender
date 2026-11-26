@@ -76,7 +76,7 @@ export function renderWeek(root, ctx, hourOverride = null) {
     days.map((d, i) =>
       el('button', {
         'data-key': toKey(d),
-        class: `d${isSameDay(d, today) ? ' today' : ''}${display.vacations && data[i].vacations.length ? ' vac' : ''}`, type: 'button',
+        class: `d${isSameDay(d, today) ? ' today' : ''}${display.vacations && data[i].vacations.length ? ' vac' : ''}${data[i].events.some((e) => e.vacation) ? ' trip' : ''}`, type: 'button',
         'aria-label': d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }),
         onclick: () => onDay(d),
       }, el('span', { class: 'wd', text: WEEKDAYS[i] }), el('span', { class: 'dn', text: String(d.getDate()) }))

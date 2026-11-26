@@ -20,7 +20,8 @@ function cell(c, today, events, birthdays, display, onDay) {
   // Namen direkt im Feld (wie bei Feiertagen): Ereignisse zuerst, dann Termine; maximal 3 Zeilen inkl. Feiertag
   const room = Math.max(0, 3 - (holiday ? 1 : 0));
   const hairs = items.events.filter(isHaircut);
-  const plain = items.events.filter((e) => !isHaircut(e));
+  const trip = items.events.some((e) => e.vacation); // eigener Urlaub: Balken statt Beschriftung (wie Schulferien)
+  const plain = items.events.filter((e) => !isHaircut(e) && !e.vacation);
   const bdayLabels = items.birthdays.map(({ birthday }) => el('i', { class: 'lbl bday', text: `${typeInfo(birthday).emoji}${birthday.name}` }));
   const plainLabels = plain.map((ev) => el('i', { class: 'lbl', style: colorStyle(ev.color), text: ev.title }));
   const hairLabels = hairs.map((ev) => el('i', { class: 'lbl', style: colorStyle(ev.color), text: `✂︎${ev.haircut.customer || 'Haare'}` }));
@@ -39,7 +40,7 @@ function cell(c, today, events, birthdays, display, onDay) {
     vacation ? vacation.name : null,
   ].filter(Boolean).join(', ');
   return el('button', {
-    class: `cell${isSameDay(c.date, today) ? ' today' : ''}${holiday ? ' holiday' : ''}${vacation ? ' vac' : ''}`,
+    class: `cell${isSameDay(c.date, today) ? ' today' : ''}${holiday ? ' holiday' : ''}${vacation ? ' vac' : ''}${trip ? ' trip' : ''}`,
     type: 'button',
     'aria-label': label,
     'data-key': c.key,
