@@ -22,7 +22,7 @@ export const clickSuppressed = () => performance.now() < suppressUntil;
  * @param {() => {scroll:HTMLElement, body:HTMLElement, cols:HTMLElement[]}} o.geometry   aktuelle Raster-Elemente
  * @param {(ev:object, changes:{date:string,start:string,end:string}) => void} o.onDrop
  */
-export function attachDrag(block, { ev, hourPx, geometry, onDrop }) {
+export function attachDrag(block, { ev, hourPx, originMin = 0, endMin = 24 * 60, geometry, onDrop }) {
   let timer = null;
   let armed = false;
   let touchId = null;
@@ -39,11 +39,12 @@ export function attachDrag(block, { ev, hourPx, geometry, onDrop }) {
     const rects = g.cols.map((c) => c.getBoundingClientRect());
     const col = columnFromX(x, rects);
     const bodyTop = g.body.getBoundingClientRect().top;
-    const startMin = movedStart({ pointerMin: yToMinutes(y - bodyTop, hourPx), grabOffsetMin, duration });
+    let startMin = movedStart({ pointerMin: yToMinutes(y - bodyTop, hourPx) + originMin, grabOffsetMin, duration });
+    startMin = Math.max(originMin, Math.min(startMin, Math.floor((endMin - duration) / 15) * 15)); // im sichtbaren Zeitfenster bleiben
     const date = g.cols[col].dataset.key;
     target = { date, startMin };
 
-    const top = bodyTop + (startMin / 60) * hourPx;
+    const top = bodyTop + ((startMin - originMin) / 60) * hourPx;
     ghost.style.left = `${rects[col].left + 1}px`;
     ghost.style.width = `${rects[col].width - 2}px`;
     ghost.style.top = `${top}px`;
@@ -155,7 +156,7 @@ export function attachDrag(block, { ev, hourPx, geometry, onDrop }) {
  * @param {HTMLElement} col   Tages-Spalte (Raster, Höhe 24 h)
  * @param {{hourPx:number, onCreate:(minutes:number)=>void}} o
  */
-export function attachSlotHold(col, { hourPx, onCreate }) {
+export function attachSlotHold(col, { hourPx, originMin = 0, endMin = 24 * 60, onCreate }) {
   let timer = null;
   let armed = false;
   let touchId = null;
@@ -165,7 +166,8 @@ export function attachSlotHold(col, { hourPx, onCreate }) {
 
   const minutesAt = (clientY) => {
     const y = clientY - col.getBoundingClientRect().top;
-    return Math.min(23 * 60, Math.max(0, Math.floor(yToMinutes(y, hourPx) / SNAP) * SNAP));
+    const raw = Math.floor((yToMinutes(y, hourPx) + originMin) / SNAP) * SNAP;
+    return Math.max(originMin, Math.min(Math.max(originMin, endMin - 60), raw));
   };
 
   function cleanup() {
@@ -189,7 +191,7 @@ export function attachSlotHold(col, { hourPx, onCreate }) {
       minutes = minutesAt(sy);
       strip = document.createElement('div');
       strip.className = 'slot-hold';
-      strip.style.top = `${(minutes / 60) * hourPx}px`;
+      strip.style.top = `${((minutes - originMin) / 60) * hourPx}px`;
       strip.style.height = `${hourPx}px`;
       strip.innerHTML = '<span></span>';
       strip.firstChild.textContent = fromMinutes(minutes);

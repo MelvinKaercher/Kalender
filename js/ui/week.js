@@ -6,7 +6,10 @@ import { colorStyle } from '../colors.js';
 import { typeInfo } from '../birthdays.js';
 import { attachDrag, attachSlotHold, clickSuppressed } from './week-drag.js';
 
-const HOUR = 52; // px pro Stunde – muss zu --hour in styles.css passen
+const DEFAULT_START_H = 8; // sichtbares Zeitfenster (wächst bei Terminen davor/danach)
+const DEFAULT_END_H = 21;
+const MIN_HOUR_PX = 30;
+const MAX_HOUR_PX = 56;
 const MIN_BLOCK_MIN = 30; // kürzere Termine werden mindestens so hoch gezeichnet
 const SNAP = 30; // Antippen eines freien Slots rastet auf halbe Stunden ein
 
@@ -45,9 +48,28 @@ export function layoutDay(events) {
   return out;
 }
 
-export function renderWeek(root, { cursor, today, now, events, birthdays, display, onDay, onEvent, onBirthday, onNewEvent, onMoveEvent }) {
+/** Sichtbares Zeitfenster [startH, endH) der Woche: Standard 8–21 Uhr, erweitert um Termine mit Uhrzeit davor/danach. */
+export function windowOf(timedEvents) {
+  let startH = DEFAULT_START_H;
+  let endH = DEFAULT_END_H;
+  for (const ev of timedEvents) {
+    const s = toMinutes(ev.start);
+    const e = ev.end && toMinutes(ev.end) > s ? toMinutes(ev.end) : s + 60;
+    startH = Math.min(startH, Math.floor(s / 60));
+    endH = Math.max(endH, Math.min(24, Math.ceil(Math.max(e, s + MIN_BLOCK_MIN) / 60)));
+  }
+  return { startH, endH };
+}
+
+export function renderWeek(root, ctx, hourOverride = null) {
+  const { cursor, today, now, events, birthdays, display, onDay, onEvent, onBirthday, onNewEvent, onMoveEvent } = ctx;
   const days = weekDays(cursor);
   const data = days.map((d) => itemsForDay(events, birthdays, d));
+  const { startH, endH } = windowOf(data.flatMap((x) => x.events.filter((e) => !e.allDay)));
+  const hours = endH - startH;
+  const HOUR = hourOverride || 40;
+  const originMin = startH * 60;
+  const endMin = endH * 60;
 
   const head = el('div', { class: 'w-head' },
     el('span'),
@@ -80,7 +102,7 @@ export function renderWeek(root, { cursor, today, now, events, birthdays, displa
 
   // Zeitraster
   const times = el('div', { class: 'w-times', 'aria-hidden': 'true' },
-    Array.from({ length: 23 }, (_, i) => el('span', { style: `top:${(i + 1) * HOUR}px`, text: `${i + 1}:00` })));
+    Array.from({ length: hours - 1 }, (_, i) => el('span', { style: `top:${(i + 1) * HOUR}px`, text: `${startH + i + 1}:00` })));
 
   const cols = days.map((d, i) => {
     const col = el('div', { class: `w-col${isSameDay(d, today) ? ' today' : ''}`, 'data-key': toKey(d) });
@@ -88,36 +110,49 @@ export function renderWeek(root, { cursor, today, now, events, birthdays, displa
       const w = 100 / it.lanes;
       const blockEl = el('button', {
           class: `block${it.lanes > 1 ? ' narrow' : ''}`, type: 'button',
-          style: `${colorStyle(it.ev.color)}top:${(it.s / 60) * HOUR}px;height:${((it.vis - it.s) / 60) * HOUR - 1}px;left:calc(${it.lane * w}% + 1px);width:calc(${w}% - 2px)`,
+          style: `${colorStyle(it.ev.color)}top:${((it.s - originMin) / 60) * HOUR}px;height:${((it.vis - it.s) / 60) * HOUR - 1}px;left:calc(${it.lane * w}% + 1px);width:calc(${w}% - 2px)`,
           'aria-label': `${it.ev.title}, ${it.ev.start} bis ${it.ev.end}`,
           onclick: (e) => { e.stopPropagation(); if (!clickSuppressed()) onEvent(it.ev); },
         }, it.ev.title, it.lanes === 1 && it.vis - it.s >= 45 ? el('span', { class: 't', text: it.ev.start }) : null);
       col.append(blockEl);
       // Lange drücken und ziehen = verschieben (die Raster-Elemente werden erst beim Ziehen gebraucht)
-      attachDrag(blockEl, { ev: it.ev, hourPx: HOUR, geometry: () => ({ scroll, body: scroll.firstChild, cols }), onDrop: onMoveEvent });
+      attachDrag(blockEl, { ev: it.ev, hourPx: HOUR, originMin, endMin, geometry: () => ({ scroll, body: scroll.firstChild, cols }), onDrop: onMoveEvent });
     }
     if (isSameDay(d, today)) {
       const mins = now.getHours() * 60 + now.getMinutes();
-      col.append(el('div', { class: 'now-line', style: `top:${(mins / 60) * HOUR}px` }));
+      if (mins >= originMin && mins <= endMin) col.append(el('div', { class: 'now-line', style: `top:${((mins - originMin) / 60) * HOUR}px` }));
     }
     // Lange auf einen freien Slot drücken => neuer Termin zu dieser Uhrzeit (wie Apple). Kurzes Antippen tut nichts;
     // nur die Maus (Rechner) legt weiterhin per Klick an.
-    attachSlotHold(col, { hourPx: HOUR, onCreate: (m) => onNewEvent(d, fromMinutes(m)) });
+    attachSlotHold(col, { hourPx: HOUR, originMin, endMin, onCreate: (m) => onNewEvent(d, fromMinutes(m)) });
     col.addEventListener('click', (e) => {
       if (e.pointerType && e.pointerType !== 'mouse') return;
       if (clickSuppressed()) return;
       const y = e.clientY - col.getBoundingClientRect().top;
-      const minutes = Math.min(23 * 60, Math.floor(((y / HOUR) * 60) / SNAP) * SNAP);
+      const minutes = Math.max(originMin, Math.min(Math.max(originMin, endMin - 60), Math.floor(((y / HOUR) * 60 + originMin) / SNAP) * SNAP));
       onNewEvent(d, fromMinutes(minutes));
     });
     return col;
   });
 
-  const scroll = el('div', { class: 'w-scroll' }, el('div', { class: 'w-body' }, times, cols));
+  const scroll = el('div', { class: 'w-scroll' }, el('div', { class: 'w-body', style: `height:${hours * HOUR}px;--hour:${HOUR}px` }, times, cols));
   scroll.addEventListener('scroll', () => { savedScroll = scroll.scrollTop; }, { passive: true });
   root.append(el('div', { class: 'week' }, head, allDay, scroll));
 
-  // Scrollposition: gemerkt, sonst zur aktuellen Uhrzeit (bei der heutigen Woche) bzw. 7 Uhr
-  const hasToday = days.some((d) => isSameDay(d, today));
-  scroll.scrollTop = savedScroll ?? (hasToday ? Math.max(0, (now.getHours() - 1) * HOUR) : 7 * HOUR);
+  // Stundenhöhe an die verfügbare Höhe anpassen, damit (möglichst) nicht gescrollt werden muss: einmal messen, neu zeichnen
+  if (!hourOverride) {
+    const fit = Math.floor((scroll.clientHeight / hours) * 10) / 10;
+    const next = Math.max(MIN_HOUR_PX, Math.min(MAX_HOUR_PX, fit || 40));
+    if (Math.abs(next - HOUR) > 0.5) {
+      root.replaceChildren();
+      return renderWeek(root, ctx, next);
+    }
+  }
+
+  // Scrollposition nur, wenn das Fenster überhaupt höher ist als der Platz
+  if (scroll.scrollHeight > scroll.clientHeight + 1) {
+    const hasToday = days.some((d) => isSameDay(d, today));
+    const focusH = hasToday ? now.getHours() - 1 : DEFAULT_START_H;
+    scroll.scrollTop = savedScroll ?? Math.max(0, (focusH - startH) * HOUR);
+  }
 }
