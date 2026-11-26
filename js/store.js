@@ -96,6 +96,10 @@ export function saveEvent(ev) {
   return write('events', (s) => s.put(item)).then(() => item);
 }
 
+/** Gelöschten Eintrag unverändert wiederherstellen (neuer Zeitstempel schlägt den Löschvermerk). */
+export const restoreEvent = (ev) => saveEvent(ev);
+export const restoreBirthday = (b) => saveBirthday(b);
+
 export function deleteEvent(id) {
   addTomb('events', id);
   cache.events = cache.events.filter((e) => e.id !== id);

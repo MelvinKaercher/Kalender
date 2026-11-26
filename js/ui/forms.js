@@ -6,6 +6,8 @@ import { toKey, fromMinutes, toMinutes, daysInMonth } from '../calendar.js';
 import { REMIND_OPTIONS } from '../reminders.js';
 import { EVENT_TYPES, typeOf } from '../birthdays.js';
 import { PALETTE, colorStyle, normalizeHex } from '../colors.js';
+import { showToast } from './toast.js';
+import { findOverlaps } from '../overlap.js';
 import { HAIRCUT_COLOR, HAIRCUT_TITLE, parseEuro } from '../haircuts.js';
 
 const barBtn = (label, onclick, strong = false) =>
@@ -159,6 +161,7 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
   hcSwitch.addEventListener('change', syncHaircut);
   syncHaircut();
 
+  let warnedFor = null; // Zeit, für die die Überschneidung schon angezeigt wurde
   async function save() {
     let name = title.value.trim();
     let hc;
@@ -184,7 +187,7 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
         return;
       }
     }
-    await store.saveEvent({
+    const candidate = {
       id: d.id,
       title: name,
       date: dateIn.value,
@@ -196,7 +199,16 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
       remind: remindSel.value === '' ? null : Number(remindSel.value),
       color: hc ? HAIRCUT_COLOR : color,
       haircut: hc || undefined,
-    });
+    };
+    // Überschneidung: erst warnen, beim zweiten Tippen trotzdem speichern
+    const overlaps = findOverlaps(store.events(), candidate);
+    const sig = overlaps.length ? `${candidate.date}|${candidate.start}|${candidate.end}` : '';
+    if (overlaps.length && warnedFor !== sig) {
+      warnedFor = sig;
+      error.textContent = `Überschneidet sich mit: ${overlaps.map((o) => `${o.start} ${o.title}`).join(', ')}. Tippe noch einmal, um trotzdem zu speichern.`;
+      return;
+    }
+    await store.saveEvent(candidate);
     sheet.close();
   }
 
@@ -213,7 +225,7 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
     colorGroup,
     el('div', { class: 'group' }, el('div', { class: 'row stack' }, note)),
     error,
-    isNew ? null : deleteButton(async () => { await store.deleteEvent(d.id); sheet.close(); }),
+    isNew ? null : deleteButton(async () => { await store.deleteEvent(d.id); sheet.close(); showToast('Termin gelöscht', 'Rückgängig', () => store.restoreEvent(event)); }),
   ];
 
   const sheet = openSheet({
@@ -274,7 +286,7 @@ export function openVacationForm({ event = null, date = new Date(), prefill = nu
         el('label', { class: 'row' }, el('span', { text: 'Von' }), fromIn),
         el('label', { class: 'row' }, el('span', { text: 'Bis' }), toIn)),
       error,
-      isNew ? null : deleteButton(async () => { await store.deleteEvent(event.id); sheet.close(); }),
+      isNew ? null : deleteButton(async () => { await store.deleteEvent(event.id); sheet.close(); showToast('Urlaub gelöscht', 'Rückgängig', () => store.restoreEvent(event)); }),
     ],
   });
   name.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), name.blur()));
@@ -359,7 +371,7 @@ export function openBirthdayForm({ birthday = null, date = new Date() } = {}) {
     ),
     hint,
     error,
-    isNew ? null : deleteButton(async () => { await store.deleteBirthday(b.id); sheet.close(); }),
+    isNew ? null : deleteButton(async () => { await store.deleteBirthday(b.id); sheet.close(); showToast('Ereignis gelöscht', 'Rückgängig', () => store.restoreBirthday(birthday)); }),
   ];
 
   const sheet = openSheet({
