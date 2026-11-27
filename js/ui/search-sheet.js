@@ -6,6 +6,7 @@ import { searchAll } from '../search.js';
 import { fromKey } from '../calendar.js';
 import { colorStyle } from '../colors.js';
 import { openEventForm, openBirthdayForm } from './forms.js';
+import { isRecurring, describeRepeat } from '../repeat.js';
 
 export function openSearchSheet() {
   const input = el('input', { type: 'search', class: 'title', placeholder: 'Termine, Kunden, Ereignisse …', autocomplete: 'off', autocapitalize: 'none', enterkeyhint: 'search', 'aria-label': 'Suche' });
@@ -22,7 +23,7 @@ export function openSearchSheet() {
       const e = h.item;
       const when = h.kind === 'birthday'
         ? 'Jährlich'
-        : `${fmtDayShort(fromKey(h.date))}${e.endDate ? ` – ${fmtDayShort(fromKey(e.endDate))}` : ''} ${fromKey(h.date).getFullYear()}${!e.allDay && e.start ? ` · ${e.start}` : ''}`;
+        : `${isRecurring(e) ? `⟳ ${describeRepeat(e)} · ab ` : ''}${fmtDayShort(fromKey(h.date))}${e.endDate ? ` – ${fmtDayShort(fromKey(e.endDate))}` : ''} ${fromKey(h.date).getFullYear()}${!e.allDay && e.start ? ` · ${e.start}` : ''}`;
       list.append(el('button', { class: 'day-row', type: 'button', style: h.kind === 'event' ? colorStyle(e.color) : '', onclick: open },
         el('span', { class: 'when', text: h.kind === 'birthday' ? '🎂' : e.vacation ? '🌴' : e.haircut ? '✂︎' : '•' }),
         el('span', { class: 'what' },

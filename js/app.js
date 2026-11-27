@@ -114,7 +114,13 @@ function render(anim = null) {
     onBirthday: (birthday) => openBirthdayForm({ birthday }),
     onVacation: (event) => openEventForm({ event }),
     onNewEvent: (date, start) => openEventForm({ date, start }),
-    onMoveEvent: (event, changes) => store.saveEvent({ ...event, ...changes }),
+    onMoveEvent: async (event, changes) => {
+      if (!event.occKey) return store.saveEvent({ ...event, ...changes });
+      // Vorkommen einer Serie verschieben = nur diesen Tag: Serie überspringt ihn, am Ziel entsteht ein Einzeltermin
+      const { occKey, seriesDate, id, updatedAt, repeat, ...single } = event;
+      await store.skipOccurrence(id, occKey);
+      return store.saveEvent({ ...single, ...changes, id: null });
+    },
     goals: store.goals(),
     onGoal: (goal) => openGoalForm({ goal }),
     onAdd: () => (state.view === 'goals' ? openGoalForm({}) : openBirthdayForm({})),

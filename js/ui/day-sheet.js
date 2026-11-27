@@ -33,7 +33,7 @@ export function openDaySheet(date) {
       el('button', { class: 'day-row', type: 'button', style: colorStyle(ev.color), onclick: () => openEventForm({ event: ev }) },
         el('span', { class: 'when', text: fmtRange(ev) }),
         el('span', { class: 'what' },
-          el('div', { class: 'name', text: ev.title }),
+          el('div', { class: 'name', text: ev.occKey ? `${ev.title} ⟳` : ev.title }),
           isHaircut(ev) ? el('div', { class: 'note', text: `✂︎ ${ev.haircut.customer ? `${ev.haircut.customer} · ` : ''}${fmtEuro(earned(ev))}` }) : null,
           ev.endDate ? el('div', { class: 'note', text: `${fmtDayShort(fromKey(ev.date))} – ${fmtDayShort(fromKey(ev.endDate))}` }) : null,
           ev.note ? el('div', { class: 'note', text: ev.note }) : null))),

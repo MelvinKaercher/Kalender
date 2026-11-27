@@ -4,6 +4,7 @@ import { toKey } from './calendar.js';
 import { birthdaysOn } from './birthdays.js';
 import { holidayOn } from './holidays.js';
 import { vacationsOn } from './school-holidays.js';
+import { isRecurring, occursOn, withOccurrence } from './repeat.js';
 
 /**
  * Alles, was an einem Tag passiert.
@@ -15,7 +16,8 @@ import { vacationsOn } from './school-holidays.js';
 export function itemsForDay(events, birthdays, date) {
   const key = toKey(date);
   const dayEvents = events
-    .filter((e) => e.date === key || (e.endDate && e.date < key && key <= e.endDate))
+    .filter((e) => (isRecurring(e) ? occursOn(e, key) : e.date === key || (e.endDate && e.date < key && key <= e.endDate)))
+    .map((e) => (isRecurring(e) ? withOccurrence(e, key) : e))
     .sort(
       (a, b) =>
         Number(!!b.allDay) - Number(!!a.allDay) ||

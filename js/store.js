@@ -99,6 +99,22 @@ export function saveEvent(ev) {
   return write('events', (s) => s.put(item)).then(() => item);
 }
 
+/** Einzelnen Tag einer Serie auslassen. */
+export function skipOccurrence(id, key) {
+  const ev = cache.events.find((e) => e.id === id);
+  if (!ev || !ev.repeat) return Promise.resolve();
+  return saveEvent({ ...ev, repeat: { ...ev.repeat, skip: [...new Set([...(ev.repeat.skip || []), key])].sort() } });
+}
+
+/** Serie endet am Tag vor `key` (war es der erste Tag, verschwindet die ganze Serie). */
+export function endSeriesBefore(id, key) {
+  const ev = cache.events.find((e) => e.id === id);
+  if (!ev || !ev.repeat) return Promise.resolve();
+  if (key <= ev.date) return deleteEvent(id);
+  const prev = new Date(Date.UTC(...key.split('-').map(Number).map((n, i) => (i === 1 ? n - 1 : n))) - 86400000).toISOString().slice(0, 10);
+  return saveEvent({ ...ev, repeat: { ...ev.repeat, until: prev } });
+}
+
 /** Gelöschten Eintrag unverändert wiederherstellen (neuer Zeitstempel schlägt den Löschvermerk). */
 export const restoreEvent = (ev) => saveEvent(ev);
 export const restoreBirthday = (b) => saveBirthday(b);

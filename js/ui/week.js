@@ -95,7 +95,7 @@ export function renderWeek(root, ctx, hourOverride = null) {
             x.birthdays.map(({ birthday }) =>
               el('button', { class: 'chip bday', type: 'button', onclick: () => onBirthday(birthday) }, `${typeInfo(birthday).emoji} ${birthday.name}`)),
             x.events.filter((e) => e.allDay).map((e) =>
-              el('button', { class: 'chip', type: 'button', style: colorStyle(e.color), onclick: () => onEvent(e) }, e.title))
+              el('button', { class: 'chip', type: 'button', style: colorStyle(e.color), onclick: () => onEvent(e) }, e.occKey && !e.vacation ? `${e.title} ⟳` : e.title))
           )
         ))
     : el('div', { class: 'w-allday' });
@@ -113,7 +113,7 @@ export function renderWeek(root, ctx, hourOverride = null) {
           style: `${colorStyle(it.ev.color)}top:${((it.s - originMin) / 60) * HOUR}px;height:${((it.vis - it.s) / 60) * HOUR - 1}px;left:calc(${it.lane * w}% + 1px);width:calc(${w}% - 2px)`,
           'aria-label': `${it.ev.title}, ${it.ev.start} bis ${it.ev.end}`,
           onclick: (e) => { e.stopPropagation(); if (!clickSuppressed()) onEvent(it.ev); },
-        }, it.ev.title, it.lanes === 1 && it.vis - it.s >= 45 ? el('span', { class: 't', text: it.ev.start }) : null);
+        }, it.ev.occKey ? `${it.ev.title} ⟳` : it.ev.title, it.lanes === 1 && it.vis - it.s >= 45 ? el('span', { class: 't', text: it.ev.start }) : null);
       col.append(blockEl);
       // Lange drücken und ziehen = verschieben (die Raster-Elemente werden erst beim Ziehen gebraucht)
       attachDrag(blockEl, { ev: it.ev, hourPx: HOUR, originMin, endMin, geometry: () => ({ scroll, body: scroll.firstChild, cols }), onDrop: onMoveEvent });

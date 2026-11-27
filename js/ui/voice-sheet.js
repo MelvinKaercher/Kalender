@@ -65,7 +65,7 @@ export function openVoiceSheet({ now = () => new Date() } = {}) {
     else {
       openEventForm({
         date, haircut: !!p.haircut,
-        prefill: { title: p.title, allDay: p.allDay, ...(p.allDay ? {} : { start: p.start, end: p.end }), remind: p.remind, haircut: p.haircut || undefined },
+        prefill: { title: p.title, allDay: p.allDay, ...(p.allDay ? {} : { start: p.start, end: p.end }), remind: p.remind, haircut: p.haircut || undefined, repeat: p.repeat },
       });
     }
   }

@@ -555,3 +555,7 @@ html, body { touch-action: manipulation; }
 .row.stack textarea.plain { font-family: inherit; font-size: 16px; }
 .row.col .day-chips, .row.col .days-head { width: 100%; }
 .day-chips { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.scope-box { margin: 14px 0 6px; padding: 12px; border-radius: 14px; background: var(--bg-soft); display: grid; gap: 8px; }
+.scope-title { font-weight: 700; text-align: center; }
+.scope-box .sheet-add { margin: 0; }
+.scope-box .text-btn { justify-self: center; }

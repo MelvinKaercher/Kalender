@@ -1,5 +1,6 @@
 // Sprach-Eingabe: macht aus einem gesprochenen deutschen Satz einen Termin-Vorschlag.
 // Reine Logik (kein DOM, kein Netz) – komplett lokal und in Node testbar.
+import { describeRepeat } from './repeat.js';
 import { toKey, startOfDay, addDays, daysInMonth, fromMinutes, toMinutes, pad } from './calendar.js';
 
 const NUMS = {
@@ -130,6 +131,27 @@ export function parseVoice(input, now = new Date()) {
   const isVacation = re('urlaub|ferien').test(orig);
   const isHaircut = re('haare|haareschneiden|haarschnitt|friseur|haircut').test(orig);
 
+  // ── Wiederholung: "jede Woche", "jeden Montag", "täglich", "alle 2 Wochen", "jeden Monat", "jährlich"
+  let repeat;
+  if (!isVacation) {
+    const rules = [
+      [re('alle\\s+(?:2|zwei)\\s+wochen|jede\\s+zweite\\s+woche|zweiwöchentlich'), { freq: 'weekly', every: 2 }],
+      [re('wöchentlich|jede\\s+woche|jede\\s+woche'), { freq: 'weekly', every: 1 }],
+      [re('täglich|jeden\\s+tag'), { freq: 'daily', every: 1 }],
+      [re('monatlich|jeden\\s+monat'), { freq: 'monthly', every: 1 }],
+      [re('jährlich|jedes\\s+jahr'), { freq: 'yearly', every: 1 }],
+    ];
+    for (const [rx, base] of rules) {
+      const x = m.work.match(rx);
+      if (x) { repeat = { ...base, until: null, skip: [] }; m.take(x); break; }
+    }
+    if (!repeat) {
+      const wd = m.work.match(new RegExp(`(?<![\\p{L}\\d])jede[nrs]?\\s+(?=(?:${WEEKDAY_RE})(?![\\p{L}\\d]))`, 'iu'));
+      const day = wd && m.work.slice(wd.index + wd[0].length).match(new RegExp(`^(${WEEKDAY_RE})`, 'iu'));
+      if (wd && day) { repeat = { freq: 'weekly', every: 1, days: [weekdayIndex(day[1])], until: null, skip: [] }; m.take(wd); }
+    }
+  }
+
   // ── Urlaub: von … bis …, "für N Tage/Wochen"
   let date = null;
   let endDate = null;
@@ -254,7 +276,7 @@ export function parseVoice(input, now = new Date()) {
     kind: 'event', title, date: toKey(date), allDay,
     start: allDay ? null : start, end: allDay ? null : end,
     remind: allDay ? (remind === null ? null : remind >= 1440 ? 1440 : 0) : remind,
-    haircut,
+    haircut, repeat,
   };
 }
 
@@ -272,5 +294,6 @@ export function describeVoice(p, now = new Date()) {
     const [y2, m2, d2] = p.endDate.split('-').map(Number);
     when = `${d.toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })} – ${new Date(y2, m2 - 1, d2).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })}`;
   } else if (p.kind === 'event') when += p.allDay ? ' · ganztägig' : ` · ${p.start}–${p.end}`;
+  if (p.repeat) when += ` · ⟳ ${describeRepeat({ date: p.date, repeat: p.repeat })}`;
   return `${when} · ${p.title || (p.kind === 'vacation' ? 'Urlaub' : 'ohne Titel')}`;
 }

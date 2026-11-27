@@ -1,6 +1,7 @@
 // Erinnerungen (nur in der App sichtbar): reine Berechnung, was gerade fällig ist.
 import { fromKey, toKey, toMinutes, addDays, startOfDay } from './calendar.js';
 import { currentStage, reminderDates, stageText } from './birthdays.js';
+import { expandEvents } from './repeat.js';
 
 export const REMIND_OPTIONS = [
   { value: null, label: 'Keine' },
@@ -43,7 +44,9 @@ export const birthdayReminderKey = (b, year, stage) => `bd:${b.id}:${year}:${sta
  */
 export function remindersForPush(events, now = new Date()) {
   const horizon = now.getTime() + 90 * 86400000;
-  return events
+  // Serien werden zu ihren Vorkommen der nächsten 90 Tage
+  const expanded = expandEvents(events, toKey(addDays(startOfDay(now), -1)), toKey(new Date(horizon)));
+  return expanded
     .filter((ev) => ev.remind !== null && ev.remind !== undefined && eventEnd(ev) > now && eventStart(ev).getTime() <= horizon)
     .sort((a, b) => eventStart(a) - eventStart(b))
     .slice(0, 200)
@@ -76,7 +79,9 @@ export function whenLabel(ev, now = new Date()) {
  */
 export function dueReminders({ events, birthdays, seen, now = new Date() }) {
   const due = [];
-  for (const ev of events) {
+  // Serien: Vorkommen von gestern bis morgen prüfen
+  const expanded = expandEvents(events, toKey(addDays(startOfDay(now), -1)), toKey(addDays(startOfDay(now), 1)));
+  for (const ev of expanded) {
     if (ev.remind === null || ev.remind === undefined) continue;
     const key = eventReminderKey(ev);
     if (seen.has(key)) continue;

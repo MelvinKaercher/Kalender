@@ -1,5 +1,6 @@
 // Macht aus dem Kalender-Datenstand Markdown für Obsidian. Rein (kein Dateizugriff, kein Netz), in Node testbar.
 import { toKey, fromKey, startOfDay, addDays } from '../../js/calendar.js';
+import { expandEvents } from '../../js/repeat.js';
 import { isHaircut, statsForYear, customerStats, fmtEuro, earned } from '../../js/haircuts.js';
 
 const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
@@ -12,7 +13,7 @@ function eventLine(ev, includeHaircuts) {
   const title = ev.haircut ? (includeHaircuts ? oneLine(ev.title) : 'Haareschneiden') : oneLine(ev.title);
   let when = ev.allDay ? 'ganztägig' : `${ev.start}–${ev.end || ''}`.replace(/–$/, '');
   if (ev.endDate) when = `bis ${dayLabel(ev.endDate)}`;
-  const tag = ev.vacation ? ' 🌴' : ev.haircut ? ' ✂︎' : '';
+  const tag = (ev.vacation ? ' 🌴' : ev.haircut ? ' ✂︎' : '') + (ev.occKey ? ' ⟳' : '');
   const note = ev.note && !ev.haircut ? ` – ${oneLine(ev.note)}` : '';
   return `- ${when}: ${title}${tag}${note}`;
 }
@@ -23,7 +24,7 @@ export function renderTermine(snapshot, now = new Date(), { includeHaircuts = tr
   const from = toKey(addDays(today, -30));
   const to = toKey(addDays(today, 120));
   const days = new Map();
-  for (const ev of snapshot.events || []) {
+  for (const ev of expandEvents(snapshot.events || [], from, to)) {
     const last = ev.endDate || ev.date;
     let k = ev.date < from ? from : ev.date;
     while (k <= last && k <= to) {

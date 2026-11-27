@@ -2,7 +2,9 @@
 import { el, MONTHS } from './dom.js';
 import { openSheet } from './sheet.js';
 import * as store from '../store.js';
-import { toKey, fromMinutes, toMinutes, daysInMonth } from '../calendar.js';
+import { toKey, fromKey, fromMinutes, toMinutes, daysInMonth } from '../calendar.js';
+import { dayNum, keyOfDayNum } from '../repeat.js';
+import { DAY_LABELS } from '../goals.js';
 import { REMIND_OPTIONS } from '../reminders.js';
 import { EVENT_TYPES, typeOf } from '../birthdays.js';
 import { PALETTE, colorStyle, normalizeHex } from '../colors.js';
@@ -173,6 +175,51 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
   hcSwitch.addEventListener('change', syncHaircut);
   syncHaircut();
 
+  // ── Wiederholung (Serie) ──
+  const series = event && event.occKey ? store.events().find((e) => e.id === event.id) : null; // Serie, wenn ein einzelnes Vorkommen geöffnet ist
+  const isOcc = !!(series && series.repeat);
+  const rep0 = (isOcc ? series : d).repeat || null;
+  const REP_KINDS = [['', 'Nie'], ['daily', 'Täglich'], ['weekly', 'Jede Woche'], ['biweekly', 'Alle 2 Wochen'], ['monthly', 'Jeden Monat'], ['yearly', 'Jedes Jahr']];
+  const kindOf = (r) => (!r ? '' : r.freq === 'weekly' && (r.every || 1) === 2 ? 'biweekly' : r.freq);
+  const repSel = el('select', { 'aria-label': 'Wiederholen' }, REP_KINDS.map(([v, l]) => el('option', { value: v, text: l })));
+  repSel.value = kindOf(rep0);
+  const repUntil = el('input', { type: 'date', value: (rep0 && rep0.until) || '', 'aria-label': 'Wiederholung bis' });
+  const weekdayOfDate = () => (dateIn.value ? fromKey(dateIn.value).getDay() : new Date().getDay());
+  let repDays = new Set(rep0 && rep0.days && rep0.days.length ? rep0.days : [weekdayOfDate()]);
+  const repDayButtons = [1, 2, 3, 4, 5, 6, 0].map((wd) =>
+    el('button', { class: 'day-chip', type: 'button', role: 'checkbox', 'data-day': String(wd), onclick: () => { repDays.has(wd) ? repDays.delete(wd) : repDays.add(wd); paintRepDays(); } }, DAY_LABELS[wd]));
+  function paintRepDays() {
+    repDayButtons.forEach((b) => { const on = repDays.has(Number(b.dataset.day)); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+  }
+  paintRepDays();
+  const repDaysRow = el('div', { class: 'row col' }, el('span', { text: 'An diesen Tagen' }), el('div', { class: 'day-chips' }, repDayButtons));
+  const repUntilRow = el('label', { class: 'row' }, el('span', { text: 'Wiederholen bis' }), repUntil);
+  const repGroup = el('div', { class: 'group', 'data-role': 'repeat' },
+    el('label', { class: 'row' }, el('span', { text: 'Wiederholen' }), repSel), repDaysRow, repUntilRow);
+  function syncRepeat() {
+    repGroup.hidden = hcSwitch.checked || (allDay.checked && !!untilIn.value);
+    const k = repSel.value;
+    repDaysRow.hidden = !(k === 'weekly' || k === 'biweekly');
+    repUntilRow.hidden = !k;
+  }
+  repSel.addEventListener('change', syncRepeat);
+  hcSwitch.addEventListener('change', syncRepeat);
+  allDay.addEventListener('change', syncRepeat);
+  untilIn.addEventListener('change', syncRepeat);
+  dateIn.addEventListener('change', () => { if (repDays.size <= 1) { repDays = new Set([weekdayOfDate()]); paintRepDays(); } });
+  syncRepeat();
+
+  // Auswahl "Nur diesen Tag / Alle …" für einzelne Vorkommen einer Serie
+  const scopeBox = el('div', { class: 'scope-box', hidden: true });
+  function showScope(text, options) {
+    scopeBox.replaceChildren(
+      el('div', { class: 'scope-title', text }),
+      ...options.map((o) => el('button', { class: 'sheet-add', type: 'button', text: o.label, onclick: o.run })),
+      el('button', { class: 'text-btn', type: 'button', text: 'Abbrechen', onclick: () => { scopeBox.hidden = true; } }));
+    scopeBox.hidden = false;
+    scopeBox.scrollIntoView?.({ block: 'nearest' });
+  }
+
   async function save() {
     let name = title.value.trim();
     let hc;
@@ -211,8 +258,31 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
       color: hc ? HAIRCUT_COLOR : color,
       haircut: hc || undefined,
     };
-    await store.saveEvent(candidate);
-    sheet.close();
+    if (!repGroup.hidden && repSel.value) {
+      const k = repSel.value;
+      candidate.repeat = {
+        freq: k === 'biweekly' ? 'weekly' : k, every: k === 'biweekly' ? 2 : 1,
+        until: repUntil.value && repUntil.value >= dateIn.value ? repUntil.value : null,
+        skip: (rep0 && rep0.skip) || [],
+      };
+      if (candidate.repeat.freq === 'weekly') candidate.repeat.days = repDays.size ? [...repDays].sort() : [weekdayOfDate()];
+    }
+    if (!isOcc) { await store.saveEvent(candidate); sheet.close(); return; }
+    // Einzelnes Vorkommen einer Serie: nur diesen Tag oder die ganze Serie ändern?
+    const delta = dayNum(dateIn.value) - dayNum(d.occKey);
+    showScope('Wiederkehrenden Termin ändern', [
+      { label: 'Nur diesen Tag', run: async () => {
+        await store.skipOccurrence(d.id, d.occKey);
+        await store.saveEvent({ ...candidate, id: null, repeat: undefined });
+        sheet.close();
+      } },
+      { label: 'Alle Termine der Serie', run: async () => {
+        const shift = (key) => keyOfDayNum(dayNum(key) + delta);
+        const rep = candidate.repeat && { ...candidate.repeat, skip: (candidate.repeat.skip || []).map(shift) };
+        await store.saveEvent({ ...candidate, date: shift(series.date), repeat: rep });
+        sheet.close();
+      } },
+    ]);
   }
 
   const content = [
@@ -224,11 +294,22 @@ export function openEventForm({ event = null, date = new Date(), start = '09:00'
     ),
     el('div', { class: 'group' }, el('label', { class: 'row' }, el('span', { text: 'Haareschneiden ✂︎' }), hcSwitch)),
     hcGroup,
+    repGroup,
     el('div', { class: 'group' }, el('label', { class: 'row' }, el('span', { text: 'Erinnerung' }), remindSel)),
     colorGroup,
     el('div', { class: 'group' }, el('div', { class: 'row stack' }, note)),
     error,
-    isNew ? null : deleteButton(async () => { await store.deleteEvent(d.id); sheet.close(); showToast('Termin gelöscht', 'Rückgängig', () => store.restoreEvent(event)); }),
+    scopeBox,
+    isNew ? null : deleteButton(async () => {
+      if (!isOcc) { await store.deleteEvent(d.id); sheet.close(); showToast('Termin gelöscht', 'Rückgängig', () => store.restoreEvent(event)); return; }
+      const before = series;
+      const done = async (fn, msg) => { await fn(); sheet.close(); showToast(msg, 'Rückgängig', () => store.restoreEvent(before)); };
+      showScope('Wiederkehrenden Termin löschen', [
+        { label: 'Nur diesen Tag', run: () => done(() => store.skipOccurrence(d.id, d.occKey), 'Tag gelöscht') },
+        { label: 'Diesen und alle folgenden', run: () => done(() => store.endSeriesBefore(d.id, d.occKey), 'Serie beendet') },
+        { label: 'Alle Termine der Serie', run: () => done(() => store.deleteEvent(d.id), 'Serie gelöscht') },
+      ]);
+    }),
   ];
 
   const sheet = openSheet({
