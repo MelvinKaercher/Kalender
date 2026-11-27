@@ -140,7 +140,7 @@ input, select, textarea { font: inherit; color: inherit; }
 #tabbar {
   flex: none;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   padding: 6px 8px calc(6px + var(--sab));
   border-top: 1px solid var(--line);
   background: var(--bg);
@@ -522,3 +522,36 @@ html, body { touch-action: manipulation; }
 }
 .lbl.bday { color: var(--bday-ink); background: var(--bday-soft); }
 .lbl.more { background: none; color: var(--text-2); text-align: center; }
+
+/* ───────── Vorsätze ───────── */
+.goals { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 6px 16px 28px; height: 100%; }
+.goal { display: flex; gap: 12px; align-items: flex-start; padding: 14px 4px; border-bottom: 1px solid var(--line); }
+.tick { flex: none; width: 34px; height: 34px; margin-top: 2px; border-radius: 50%; border: 2px solid var(--line-strong); display: grid; place-items: center; font-size: 18px; font-weight: 700; color: #fff; transition: background .15s, border-color .15s, transform .12s; }
+.tick:active { transform: scale(.9); }
+.tick.on { background: var(--holiday); border-color: var(--holiday); }
+.goal-main { flex: 1; min-width: 0; text-align: left; }
+.goal-title { font-size: 17px; font-weight: 600; }
+.goal.ticked .goal-title { color: var(--text-2); }
+.goal-note { font-size: 14px; color: var(--text-2); margin-top: 2px; overflow-wrap: anywhere; }
+.goal-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 13px; color: var(--text-2); }
+.streak { font-weight: 700; color: var(--accent); }
+.streak.none { font-weight: 500; color: var(--text-2); }
+.week-dots { display: flex; gap: 5px; margin-top: 8px; }
+.week-dots .dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 10.5px; font-weight: 600; color: var(--text-2); background: var(--bg-soft); }
+.week-dots .dot.off { opacity: .35; }
+.week-dots .dot.on { background: var(--holiday); color: #fff; opacity: 1; }
+.week-dots .dot.today { box-shadow: 0 0 0 2px var(--accent); }
+.empty.small { padding: 24px 0; }
+.goal-archive { margin-top: 18px; }
+.archive-head { width: 100%; display: flex; justify-content: space-between; padding: 10px 4px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); }
+.goal-done { width: 100%; display: flex; gap: 10px; align-items: center; padding: 10px 4px; text-align: left; color: var(--text-2); border-bottom: 1px solid var(--line); }
+.goal-done span:first-child { color: var(--holiday); font-weight: 700; }
+.day-chips { display: flex; gap: 6px; margin-top: 8px; }
+.day-chip { flex: 1; padding: 9px 0; border-radius: 10px; font-size: 13.5px; font-weight: 600; background: var(--bg-soft); color: var(--text-2); }
+.day-chip.on { background: var(--accent); color: #fff; }
+.days-head { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.text-btn.small { font-size: 14px; padding: 4px 8px; }
+#tabbar button span { font-size: 10.5px; }
+.row.stack textarea.plain { font-family: inherit; font-size: 16px; }
+.row.col .day-chips, .row.col .days-head { width: 100%; }
+.day-chips { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }

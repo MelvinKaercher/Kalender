@@ -8,11 +8,11 @@
 //          meta      { key, value }   (lokale Einstellungen, z. B. Push-Status und Zugangscode)
 
 const DB_NAME = 'kalender';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let db = null;
 let persistent = true;
-const cache = { events: [], birthdays: [], seen: new Set(), meta: new Map() };
+const cache = { events: [], birthdays: [], goals: [], seen: new Set(), meta: new Map() };
 const listeners = new Set();
 
 function openDb() {
@@ -25,6 +25,7 @@ function openDb() {
       ensure('birthdays', 'id');
       ensure('seen', 'key');
       ensure('meta', 'key'); // neu in Version 2
+      ensure('goals', 'id'); // neu in Version 3
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -57,9 +58,10 @@ const newId = () =>
 export async function load() {
   try {
     db = await openDb();
-    const [events, birthdays, seen, metaRows] = await Promise.all([getAll('events'), getAll('birthdays'), getAll('seen'), getAll('meta')]);
+    const [events, birthdays, goals, seen, metaRows] = await Promise.all([getAll('events'), getAll('birthdays'), getAll('goals'), getAll('seen'), getAll('meta')]);
     cache.events = events;
     cache.birthdays = birthdays;
+    cache.goals = goals;
     cache.seen = new Set(seen.map((s) => s.key));
     cache.meta = new Map(metaRows.map((m) => [m.key, m.value]));
     // Bitte iOS, die Daten nicht automatisch zu verwerfen.
@@ -74,6 +76,7 @@ export async function load() {
 export const isPersistent = () => persistent;
 export const events = () => cache.events;
 export const birthdays = () => cache.birthdays;
+export const goals = () => cache.goals;
 export const seen = () => cache.seen;
 export const onChange = (fn) => (listeners.add(fn), () => listeners.delete(fn));
 
@@ -85,8 +88,8 @@ function upsert(list, item) {
 
 // Gelöschte Einträge merken wir uns (id → Zeitpunkt), damit der Abgleich die Löschung auf andere Geräte bringt.
 function addTomb(kind, id) {
-  const tombs = meta.get('tombs') || { events: {}, birthdays: {} };
-  meta.set('tombs', { ...tombs, [kind]: { ...tombs[kind], [id]: Date.now() } });
+  const tombs = meta.get('tombs') || { events: {}, birthdays: {}, goals: {} };
+  meta.set('tombs', { ...tombs, [kind]: { ...(tombs[kind] || {}), [id]: Date.now() } });
 }
 
 export function saveEvent(ev) {
@@ -121,6 +124,31 @@ export function deleteBirthday(id) {
   return write('birthdays', (s) => s.delete(id));
 }
 
+export function saveGoal(g) {
+  const item = { checks: [], done: false, note: '', remind: null, ...g, id: g.id || newId(), createdAt: g.createdAt || Date.now(), updatedAt: Date.now() };
+  upsert(cache.goals, item);
+  notify();
+  return write('goals', (s) => s.put(item)).then(() => item);
+}
+
+export function deleteGoal(id) {
+  addTomb('goals', id);
+  cache.goals = cache.goals.filter((g) => g.id !== id);
+  notify();
+  return write('goals', (s) => s.delete(id));
+}
+
+/** Gelöschten Vorsatz unverändert wiederherstellen. */
+export const restoreGoal = (g) => saveGoal(g);
+
+/** Tag als erledigt abhaken bzw. wieder entfernen. */
+export function toggleCheck(id, dateKey) {
+  const g = cache.goals.find((x) => x.id === id);
+  if (!g) return Promise.resolve();
+  const checks = g.checks || [];
+  return saveGoal({ ...g, checks: checks.includes(dateKey) ? checks.filter((k) => k !== dateKey) : [...checks, dateKey].sort() });
+}
+
 export function markSeen(key) {
   if (cache.seen.has(key)) return Promise.resolve();
   cache.seen.add(key);
@@ -146,12 +174,12 @@ export const meta = {
 /** Gesamter Datenstand (Termine, Ereignisse, Löschvermerke) – ohne lokale Einstellungen. */
 export function snapshot() {
   const t = cache.meta.get('tombs') || {};
-  return { events: [...cache.events], birthdays: [...cache.birthdays], tombs: { events: t.events || {}, birthdays: t.birthdays || {} } };
+  return { events: [...cache.events], birthdays: [...cache.birthdays], goals: [...cache.goals], tombs: { events: t.events || {}, birthdays: t.birthdays || {}, goals: t.goals || {} } };
 }
 
 /** Übernimmt einen zusammengeführten Stand, ohne `updatedAt` zu verändern. */
 export async function applySnapshot(snap) {
-  for (const [kind, name] of [['events', 'events'], ['birthdays', 'birthdays']]) {
+  for (const [kind, name] of [['events', 'events'], ['birthdays', 'birthdays'], ['goals', 'goals']]) {
     const next = snap[kind] || [];
     const nextIds = new Set(next.map((x) => x.id));
     const removed = cache[kind].filter((x) => !nextIds.has(x.id)).map((x) => x.id);
@@ -162,6 +190,6 @@ export async function applySnapshot(snap) {
       await write(name, (st) => { removed.forEach((id) => st.delete(id)); changed.forEach((x) => st.put(x)); });
     }
   }
-  await meta.set('tombs', snap.tombs || { events: {}, birthdays: {} });
+  await meta.set('tombs', { events: {}, birthdays: {}, goals: {}, ...(snap.tombs || {}) });
   notify();
 }

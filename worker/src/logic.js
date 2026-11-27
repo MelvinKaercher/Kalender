@@ -109,11 +109,36 @@ export function dueReminderNotifications({ reminders = [], now, tz, sent = {} })
   return out;
 }
 
+/* ───────── Vorsätze (Erinnerung zu einer Uhrzeit an bestimmten Wochentagen) ───────── */
+
+const GOAL_GRACE_MINUTES = 10;
+
+/**
+ * Fällige Vorsatz-Erinnerungen: heute ist ein geplanter Wochentag (Ortszeit), die Uhrzeit ist erreicht (bis 10 Min. danach),
+ * der Vorsatz ist heute nicht schon abgehakt und die Erinnerung wurde noch nicht gesendet.
+ * @param {{id:string,title:string,note?:string,time:string,days:number[],checks?:string[]}[]} goals
+ */
+export function dueGoalNotifications({ goals = [], now, tz, sent = {} }) {
+  const local = zonedNow(now, tz);
+  const weekday = new Date(`${local.key}T00:00:00Z`).getUTCDay();
+  const out = [];
+  for (const g of goals) {
+    if (!g.days.includes(weekday)) continue;
+    if ((g.checks || []).includes(local.key)) continue;
+    const at = toMinutes(g.time);
+    if (local.minutes < at || local.minutes >= at + GOAL_GRACE_MINUTES) continue;
+    const id = `goal|${g.id}|${local.key}|${g.time}`;
+    if (sent[id]) continue;
+    out.push({ id, goalId: g.id, title: g.title, body: g.note ? g.note : 'Zeit für deinen Vorsatz.' });
+  }
+  return out;
+}
+
 /** Alte "gesendet"-Markierungen entfernen (Geburtstagsjahr vor dem Vorjahr, Termin-Erinnerungen nach 14 Tagen). */
 export function pruneSent(sent, currentYear, now = new Date()) {
   const kept = {};
   for (const [id, value] of Object.entries(sent)) {
-    if (id.startsWith('ev|')) {
+    if (id.startsWith('ev|') || id.startsWith('goal|')) {
       if (now.getTime() - Date.parse(value) < 14 * 86400000) kept[id] = value;
       continue;
     }

@@ -3,7 +3,7 @@
 // Der Server speichert nur einen verschlüsselten Block, den er nicht lesen kann.
 
 const DAY = 86400000;
-const KINDS = ['events', 'birthdays'];
+const KINDS = ['events', 'birthdays', 'goals'];
 export const TOMB_KEEP_DAYS = 180;
 
 export class SyncError extends Error {
@@ -14,7 +14,7 @@ export class SyncError extends Error {
 }
 
 /** Leerer Datenstand: tombs = gelöschte Einträge { id: Zeitpunkt der Löschung }. */
-export const emptySnapshot = () => ({ events: [], birthdays: [], tombs: { events: {}, birthdays: {} } });
+export const emptySnapshot = () => ({ events: [], birthdays: [], goals: [], tombs: { events: {}, birthdays: {}, goals: {} } });
 
 /** Stabile Textform (Schlüssel sortiert, Listen nach id) – zum Vergleichen zweier Datenstände. */
 export function canon(snapshot) {
@@ -27,7 +27,8 @@ export function canon(snapshot) {
   return JSON.stringify(sortKeys({
     events: [...(s.events || [])].sort((a, b) => (a.id < b.id ? -1 : 1)),
     birthdays: [...(s.birthdays || [])].sort((a, b) => (a.id < b.id ? -1 : 1)),
-    tombs: { events: s.tombs?.events || {}, birthdays: s.tombs?.birthdays || {} },
+    goals: [...(s.goals || [])].sort((a, b) => (a.id < b.id ? -1 : 1)),
+    tombs: { events: s.tombs?.events || {}, birthdays: s.tombs?.birthdays || {}, goals: s.tombs?.goals || {} },
   }));
 }
 

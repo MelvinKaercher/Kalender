@@ -180,3 +180,31 @@ test('pruneSent: Termin-Erinnerungen nach 14 Tagen weg, Geburtstage unverändert
   const kept = pruneSent({ 'ev|a|2026-11-01|1400|15': '2026-11-10T00:00:00Z', 'ev|b|2026-11-29|1400|15': '2026-11-29T00:00:00Z', 'x:2026:today': 'v', 'x:2020:today': 'v' }, 2026, now);
   assert.deepEqual(Object.keys(kept).sort(), ['ev|b|2026-11-29|1400|15', 'x:2026:today']);
 });
+
+import { dueGoalNotifications } from '../src/logic.js';
+
+const goal = { id: 'eng', title: 'Englisch lernen', note: '20 Minuten Vokabeln', time: '19:00', days: [1, 3, 5], checks: [] }; // Mo, Mi, Fr
+const dueGoal = (iso, goals = [goal], sent = {}) => dueGoalNotifications({ goals, now: new Date(iso), tz: BERLIN, sent });
+
+test('Vorsatz: an geplanten Wochentagen zur Uhrzeit (bis 10 Min. danach)', () => {
+  // Mo 30.11.2026, 19:00 Berlin = 18:00 UTC
+  assert.equal(dueGoal('2026-11-30T17:59:00Z').length, 0);
+  const [n] = dueGoal('2026-11-30T18:00:00Z');
+  assert.deepEqual([n.id, n.goalId, n.title, n.body], ['goal|eng|2026-11-30|19:00', 'eng', 'Englisch lernen', '20 Minuten Vokabeln']);
+  assert.equal(dueGoal('2026-11-30T18:09:00Z').length, 1);
+  assert.equal(dueGoal('2026-11-30T18:10:00Z').length, 0);
+  assert.equal(dueGoal('2026-12-01T18:00:00Z').length, 0); // Dienstag: nicht geplant
+});
+test('Vorsatz: nicht erneut senden, nicht wenn heute schon abgehakt, Standardtext ohne Notiz', () => {
+  assert.equal(dueGoal('2026-11-30T18:00:00Z', [goal], { 'goal|eng|2026-11-30|19:00': 'x' }).length, 0);
+  assert.equal(dueGoal('2026-11-30T18:00:00Z', [{ ...goal, checks: ['2026-11-30'] }]).length, 0);
+  assert.equal(dueGoal('2026-11-30T18:00:00Z', [{ ...goal, checks: ['2026-11-29'] }]).length, 1);
+  assert.equal(dueGoal('2026-11-30T18:00:00Z', [{ ...goal, note: '' }])[0].body, 'Zeit für deinen Vorsatz.');
+});
+test('Vorsatz: Zeitzone entscheidet über den Tag; pruneSent räumt alte Einträge auf', () => {
+  // Sonntag 29.11. 23:30 UTC = Mo 30.11. 00:30 Berlin; Vorsatz um 00:30 an Montagen
+  const early = { ...goal, time: '00:30' };
+  assert.equal(dueGoal('2026-11-29T23:30:00Z', [early]).length, 1);
+  const kept = pruneSent({ 'goal|a|2026-01-01|19:00': '2026-01-01T00:00:00Z', 'goal|b|2026-11-30|19:00': '2026-11-30T18:00:00Z' }, 2026, new Date('2026-12-01T00:00:00Z'));
+  assert.deepEqual(Object.keys(kept), ['goal|b|2026-11-30|19:00']);
+});

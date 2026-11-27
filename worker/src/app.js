@@ -1,6 +1,6 @@
 // HTTP-Handler und Cron-Lauf. Alle Abhängigkeiten (KV, Push-Versand, Uhr) werden
 // übergeben, damit sich alles ohne Cloudflare testen lässt.
-import { dueNotifications, dueReminderNotifications, pruneSent, isValidTimeZone, isTime, DEFAULT_TIMES } from './logic.js';
+import { dueNotifications, dueReminderNotifications, dueGoalNotifications, pruneSent, isValidTimeZone, isTime, DEFAULT_TIMES } from './logic.js';
 import { EVENT_TYPES } from '../../js/birthdays.js';
 
 const EVENT_TYPE_KEYS = Object.keys(EVENT_TYPES);
@@ -9,6 +9,7 @@ const MAX_BODY_BYTES = 64 * 1024;
 const MAX_REMINDERS = 200;
 const MAX_SYNC_BYTES = 1024 * 1024; // verschlüsselter Datenblock für den Geräte-Abgleich
 const MAX_BIRTHDAYS = 500;
+const MAX_GOALS = 50;
 const MAX_SUBSCRIPTIONS = 5;
 
 /** Nur echte Push-Dienste: Der Worker ruft diese Adresse auf – ohne Liste wäre er ein offener Proxy. */
@@ -70,6 +71,25 @@ function cleanReminders(list) {
     if (!allDay && !isTime(start)) return null;
     if (!Number.isInteger(remind) || remind < 0 || remind > 10080) return null;
     out.push({ id, title, date, allDay, start: allDay ? null : start, remind });
+  }
+  return out;
+}
+
+/** Vorsätze mit Erinnerung – streng geprüft; undefined = nicht mitgeschickt (ältere App). */
+function cleanGoals(list) {
+  if (list === undefined) return undefined;
+  if (!Array.isArray(list) || list.length > MAX_GOALS) return null;
+  const out = [];
+  for (const g of list) {
+    if (!g || typeof g !== 'object') return null;
+    const { id, title, note, time, days, checks } = g;
+    if (typeof id !== 'string' || !/^[\w-]{1,64}$/.test(id)) return null;
+    if (typeof title !== 'string' || title.length < 1 || title.length > 120) return null;
+    if (note !== undefined && (typeof note !== 'string' || note.length > 200)) return null;
+    if (!isTime(time)) return null;
+    if (!Array.isArray(days) || days.length < 1 || days.length > 7 || !days.every((d, i) => Number.isInteger(d) && d >= 0 && d <= 6 && days.indexOf(d) === i)) return null;
+    if (checks !== undefined && (!Array.isArray(checks) || checks.length > 8 || !checks.every((k) => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k)))) return null;
+    out.push({ id, title, note: note || '', time, days, checks: checks || [] });
   }
   return out;
 }
@@ -152,6 +172,8 @@ export async function handleRequest(request, env, { sendPush }) {
     const subscription = cleanSubscription(body.subscription, env);
     const birthdays = cleanBirthdays(body.birthdays);
     const reminders = cleanReminders(body.reminders);
+    const goals = cleanGoals(body.goals);
+    if (goals === null) return reply(400, { error: 'goals' });
     if (!subscription) return reply(400, { error: 'subscription' });
     if (!birthdays) return reply(400, { error: 'birthdays' });
     if (reminders === null) return reply(400, { error: 'reminders' });
@@ -162,7 +184,7 @@ export async function handleRequest(request, env, { sendPush }) {
       const { keys } = await env.SUBS.list({ prefix: 'sub:' });
       if (keys.length >= MAX_SUBSCRIPTIONS) return reply(429, { error: 'limit' });
     }
-    await env.SUBS.put(key, JSON.stringify({ subscription, tz: body.tz, birthdays, reminders: reminders ?? [], sent: existing?.sent || {}, updatedAt: new Date().toISOString() }));
+    await env.SUBS.put(key, JSON.stringify({ subscription, tz: body.tz, birthdays, reminders: reminders ?? [], goals: goals ?? existing?.goals ?? [], sent: existing?.sent || {}, updatedAt: new Date().toISOString() }));
     return reply(200, { ok: true });
   }
 
@@ -175,10 +197,12 @@ export async function handleRequest(request, env, { sendPush }) {
     if (!record) return reply(404, { error: 'unknown subscription' }); // App meldet sich dann neu an
     const birthdays = cleanBirthdays(body.birthdays);
     const reminders = cleanReminders(body.reminders);
+    const goals = cleanGoals(body.goals);
+    if (goals === null) return reply(400, { error: 'goals' });
     if (!birthdays) return reply(400, { error: 'birthdays' });
     if (reminders === null) return reply(400, { error: 'reminders' });
     if (!isValidTimeZone(body.tz)) return reply(400, { error: 'tz' });
-    await env.SUBS.put(key, JSON.stringify({ ...record, birthdays, reminders: reminders ?? record.reminders ?? [], tz: body.tz, updatedAt: new Date().toISOString() }));
+    await env.SUBS.put(key, JSON.stringify({ ...record, birthdays, reminders: reminders ?? record.reminders ?? [], goals: goals ?? record.goals ?? [], tz: body.tz, updatedAt: new Date().toISOString() }));
     return reply(200, { ok: true });
   }
 
@@ -215,6 +239,7 @@ export async function runScheduled(env, { sendPush, now = new Date() }) {
       const due = [
         ...dueNotifications({ birthdays: record.birthdays, now, tz: record.tz, sent: record.sent, times }),
         ...dueReminderNotifications({ reminders: record.reminders || [], now, tz: record.tz, sent: record.sent }),
+        ...dueGoalNotifications({ goals: record.goals || [], now, tz: record.tz, sent: record.sent }),
       ];
       let changed = false;
       let expired = false;
@@ -223,8 +248,8 @@ export async function runScheduled(env, { sendPush, now = new Date() }) {
         try {
           result = await sendPush(record.subscription, {
             title: n.title, body: n.body,
-            tag: n.eventId ? `ev-${n.eventId}` : `bd-${n.id}`,
-            url: n.eventId ? `./?open=event:${encodeURIComponent(n.eventId)}` : `./?open=birthday:${encodeURIComponent(n.birthdayId)}`,
+            tag: n.goalId ? `goal-${n.goalId}` : n.eventId ? `ev-${n.eventId}` : `bd-${n.id}`,
+            url: n.goalId ? './?open=goals' : n.eventId ? `./?open=event:${encodeURIComponent(n.eventId)}` : `./?open=birthday:${encodeURIComponent(n.birthdayId)}`,
           }, env);
         } catch (err) {
           console.error('Push fehlgeschlagen', err?.message || err);

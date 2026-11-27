@@ -8,6 +8,9 @@ import { renderYear } from './ui/year.js';
 import { openDisplaySettings } from './ui/display-settings.js';
 import { renderBirthdays } from './ui/birthdays-view.js';
 import { renderHaircuts } from './ui/haircuts-view.js';
+import { renderGoals } from './ui/goals-view.js';
+import { openGoalForm } from './ui/goal-form.js';
+import { goalsForPush } from './goals.js';
 import { openDaySheet } from './ui/day-sheet.js';
 import { openEventForm, openBirthdayForm } from './ui/forms.js';
 import { syncBanners } from './ui/banner.js';
@@ -22,7 +25,7 @@ import { openVoiceSheet } from './ui/voice-sheet.js';
 import { openSearchSheet } from './ui/search-sheet.js';
 
 const $ = (sel) => document.querySelector(sel);
-const VIEWS = ['month', 'week', 'year', 'haircuts', 'birthdays'];
+const VIEWS = ['month', 'week', 'year', 'haircuts', 'birthdays', 'goals'];
 
 function savedView() {
   try {
@@ -32,7 +35,7 @@ function savedView() {
 }
 
 const state = { view: savedView(), cursor: startOfDay(new Date()) };
-const push = createPush({ config, meta: store.meta, getBirthdays: () => store.birthdays(), getReminders: () => remindersForPush(store.events()) });
+const push = createPush({ config, meta: store.meta, getBirthdays: () => store.birthdays(), getReminders: () => remindersForPush(store.events()), getGoals: () => goalsForPush(store.goals()) });
 const syncer = createSync({ config, meta: store.meta, store });
 let renderedDay = toKey(new Date());
 
@@ -61,6 +64,8 @@ function renderHeader(today) {
   } else if (view === 'haircuts') {
     title.append('Haare ', el('span', { class: 'sub', text: String(cursor.getFullYear()) }));
     showToday = cursor.getFullYear() !== today.getFullYear();
+  } else if (view === 'goals') {
+    title.append('Vorsätze');
   } else {
     title.append('Ereignisse');
   }
@@ -71,13 +76,13 @@ function renderHeader(today) {
   if (zoomable) { title.setAttribute('role', 'button'); title.setAttribute('aria-label', `${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}, Jahresansicht öffnen`); }
   else { title.removeAttribute('role'); title.removeAttribute('aria-label'); }
 
-  $('#nav').hidden = view === 'birthdays';
+  $('#nav').hidden = view === 'birthdays' || view === 'goals';
   $('#btn-today').hidden = !showToday;
   const unit = { week: 'Woche', year: 'Jahr', haircuts: 'Jahr' }[view] || 'Monat';
   $('#btn-prev').setAttribute('aria-label', { Monat: 'Vorheriger Monat', Woche: 'Vorherige Woche', Jahr: 'Vorheriges Jahr' }[unit]);
   $('#btn-next').setAttribute('aria-label', { Monat: 'Nächster Monat', Woche: 'Nächste Woche', Jahr: 'Nächstes Jahr' }[unit]);
   $('#btn-today').setAttribute('aria-label', unit === 'Jahr' ? 'Zum aktuellen Jahr' : `Zur aktuellen ${unit}`);
-  $('#btn-add').setAttribute('aria-label', view === 'birthdays' ? 'Ereignis hinzufügen' : view === 'haircuts' ? 'Haarschnitt hinzufügen' : 'Termin hinzufügen');
+  $('#btn-add').setAttribute('aria-label', view === 'birthdays' ? 'Ereignis hinzufügen' : view === 'goals' ? 'Vorsatz hinzufügen' : view === 'haircuts' ? 'Haarschnitt hinzufügen' : 'Termin hinzufügen');
   document.querySelectorAll('#tabbar button').forEach((b) => {
     const active = b.dataset.view === (view === 'year' ? 'month' : view);
     b.classList.toggle('active', active);
@@ -110,7 +115,9 @@ function render(anim = null) {
     onVacation: (event) => openEventForm({ event }),
     onNewEvent: (date, start) => openEventForm({ date, start }),
     onMoveEvent: (event, changes) => store.saveEvent({ ...event, ...changes }),
-    onAdd: () => openBirthdayForm({}),
+    goals: store.goals(),
+    onGoal: (goal) => openGoalForm({ goal }),
+    onAdd: () => (state.view === 'goals' ? openGoalForm({}) : openBirthdayForm({})),
     onAddHaircut: () => openEventForm({ date: today, haircut: true }),
     pushStatus: push.status(),
     syncStatus: syncer.status(),
@@ -131,6 +138,7 @@ function render(anim = null) {
   else if (state.view === 'week') renderWeek(view, ctx);
   else if (state.view === 'year') renderYear(view, ctx);
   else if (state.view === 'haircuts') renderHaircuts(view, ctx);
+  else if (state.view === 'goals') renderGoals(view, ctx);
   else renderBirthdays(view, ctx);
 }
 
@@ -161,7 +169,7 @@ let navTimer = null;
 
 /** delta: +1 = vor, -1 = zurück (Monat bzw. Woche) */
 function go(delta) {
-  if (state.view === 'birthdays') return;
+  if (state.view === 'birthdays' || state.view === 'goals') return;
   const today = startOfDay(new Date());
   if (state.view === 'month') {
     // Monate scrollen: weich zum vorherigen/nächsten Monat
@@ -197,6 +205,7 @@ function goToday() {
 /** Neuer Termin: im Monat am Cursor-Tag, in der Woche heute (falls sichtbar) sonst Wochenstart. */
 function addForCurrentView() {
   if (state.view === 'birthdays') return openBirthdayForm({});
+  if (state.view === 'goals') return openGoalForm({});
   if (state.view === 'haircuts') return openEventForm({ date: startOfDay(new Date()), haircut: true });
   const today = startOfDay(new Date());
   if (state.view === 'week') {
@@ -296,6 +305,7 @@ function checkReminders() {
 const birthdaySignature = () => JSON.stringify([
   store.birthdays().map((b) => [b.id, b.name, b.day, b.month, b.year, b.type || 'birthday']),
   remindersForPush(store.events()),
+  goalsForPush(store.goals()),
 ]);
 let lastSignature = '';
 let lastSync = 0;
@@ -316,6 +326,7 @@ function syncPush({ force = false } = {}) {
 function openFromUrl(href) {
   let target;
   try { target = new URL(href, location.href).searchParams.get('open'); } catch { return; }
+  if (target === 'goals') { history.replaceState(null, '', location.pathname); setView('goals'); return; }
   const m = /^(birthday|event):(.+)$/.exec(target || '');
   if (!m) return;
   history.replaceState(null, '', location.pathname);

@@ -315,3 +315,25 @@ test('Cron: Termin-Erinnerung wird zur richtigen Zeit einmal gesendet (inkl. Lin
   await runScheduled(env, { sendPush, now: new Date('2026-11-25T12:50:00Z') });
   assert.equal(msgs.length, 1, 'nicht doppelt');
 });
+
+test('Vorsätze: /subscribe und /sync prüfen streng; Cron sendet; ältere App ohne goals behält sie', async () => {
+  const env = mkEnv();
+  const goals = [{ id: 'eng', title: 'Englisch lernen', note: '20 Min', time: '19:00', days: [1, 3, 5], checks: [] }];
+  for (const bad of [[{ ...goals[0], title: '' }], [{ ...goals[0], time: '25:00' }], [{ ...goals[0], days: [] }], [{ ...goals[0], days: [7] }], [{ ...goals[0], days: [1, 1] }], [{ ...goals[0], checks: ['x'] }], 'nein']) {
+    const r = await subscribe(env, { goals: bad });
+    assert.equal(r.status, 400, JSON.stringify(bad));
+    assert.equal((await r.json()).error, 'goals');
+  }
+  assert.equal((await subscribe(env, { goals })).status, 200);
+  const key = [...env.SUBS.map.keys()].find((k) => k.startsWith('sub:'));
+  assert.equal(JSON.parse(env.SUBS.map.get(key)).goals.length, 1);
+  // ältere App ohne goals: bleibt erhalten
+  assert.equal((await call(env, '/sync', { endpoint: ENDPOINT, birthdays: bdays, tz: 'Europe/Berlin' })).status, 200);
+  assert.equal(JSON.parse(env.SUBS.map.get(key)).goals.length, 1);
+  // Mo 30.11.2026 19:00 Berlin
+  const sent = [];
+  const log = await runScheduled(env, { sendPush: async (s, p) => { sent.push(p); return { status: 201 }; }, now: new Date('2026-11-30T18:01:00Z') });
+  assert.deepEqual(log, ['goal|eng|2026-11-30|19:00']);
+  assert.deepEqual([sent[0].title, sent[0].body, sent[0].tag, sent[0].url], ['Englisch lernen', '20 Min', 'goal-eng', './?open=goals']);
+  assert.equal((await runScheduled(env, { sendPush: async () => ({ status: 201 }), now: new Date('2026-11-30T18:04:00Z') })).length, 0); // nicht doppelt
+});
