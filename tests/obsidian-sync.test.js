@@ -47,3 +47,44 @@ test('Rundlauf: verschlüsselter Block → Dateien; zweiter Lauf ändert nichts;
   const noHair = await runOnce({ ...cfg, vaultFolder: join(dir, 'K2'), includeHaircuts: false }, { fetchFn, now: NOW });
   assert.ok(!noHair.changed.includes('Haare.md'));
 });
+
+import { PassThrough } from 'node:stream';
+import { mkdir } from 'node:fs/promises';
+import { cleanPathInput, startupScript, setup } from '../tools/obsidian-sync/kalender-zu-obsidian.mjs';
+
+test('Einrichtung: Pfad-Bereinigung und Autostart-Skript', () => {
+  assert.equal(cleanPathInput('  "C:\\Users\\Mel vin\\Vault"  '), 'C:\\Users\\Mel vin\\Vault');
+  const vbs = startupScript('C:\\Program Files\\nodejs\\node.exe', 'C:\\k\\a.mjs');
+  assert.match(vbs, /^CreateObject\("WScript\.Shell"\)\.Run """C:\\Program Files\\nodejs\\node\.exe"" ""C:\\k\\a\.mjs"" --watch", 0, False\r\n$/);
+});
+
+// Antworten werden nacheinander eingespeist, sobald die App eine Frage stellt
+function scripted(answers) {
+  const input = new PassThrough();
+  const out = [];
+  const output = new PassThrough();
+  output.on('data', (b) => {
+    const text = b.toString();
+    out.push(text);
+    if (text.trimEnd().endsWith(':') && answers.length) setImmediate(() => input.write(`${answers.shift()}\n`));
+  });
+  return { input, output, out };
+}
+
+test('Einrichtung: geführter Ablauf schreibt config.json und Dateien, wiederholt bei falschem Passwort', async () => {
+  const blob = await encryptSnapshot(snap, 'geheim');
+  const fetchFn = async () => ({ ok: true, status: 200, json: async () => ({ version: 1, blob }) });
+  const dir = await mkdtemp(join(tmpdir(), 'kal-setup-'));
+  const vault = join(dir, 'Mein Vault');
+  await mkdir(vault);
+  const s = scripted([`"${vault}"`, 'n', 'code', 'falsch', 'code', 'geheim', 'j']);
+  const startupDir = join(dir, 'Startup');
+  const ok = await setup({ input: s.input, output: s.output, fetchFn, configPath: join(dir, 'config.json'), platform: 'win32', startupDir, launch: false });
+  assert.equal(ok, true);
+  const cfg = JSON.parse(await readFile(join(dir, 'config.json'), 'utf8'));
+  assert.deepEqual([cfg.token, cfg.password, cfg.includeHaircuts, cfg.vaultFolder], ['code', 'geheim', false, join(vault, 'Kalender')]);
+  assert.ok((await readdir(join(vault, 'Kalender'))).includes('Termine.md'));
+  assert.ok(!(await readdir(join(vault, 'Kalender'))).includes('Haare.md'));
+  assert.ok((await readdir(startupDir)).includes('KalenderZuObsidian.vbs'));
+  assert.match(s.out.join(''), /Passwort stimmt nicht/);
+});
